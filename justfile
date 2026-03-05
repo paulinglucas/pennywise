@@ -78,7 +78,7 @@ build-frontend:
     cd frontend && npm run build
 
 build-docker:
-    docker build -t pennywise:latest .
+    docker build --network=host -t pennywise:latest .
 
 # ---------- Utilities ----------
 
