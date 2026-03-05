@@ -8,7 +8,7 @@ Two users. One Raspberry Pi. Zero ongoing cost.
 
 ## Tech Stack
 
-- **Backend:** Go 1.24, Chi router, SQLite (WAL mode)
+- **Backend:** Go 1.25, Chi router, SQLite (WAL mode, pure Go driver)
 - **Frontend:** React 19, TypeScript 5, Tailwind CSS v4, TanStack Query, Recharts
 - **Contract:** OpenAPI spec with code generation (oapi-codegen + openapi-typescript)
 - **Tooling:** just, mise, Docker Compose, GitHub Actions CI
@@ -21,7 +21,7 @@ Two users. One Raspberry Pi. Zero ongoing cost.
 ## Getting Started
 
 ```bash
-mise install          # Install Go 1.24, Node 22, just
+mise install          # Install Go 1.25, Node 22, just
 just setup            # Install Go and Node dependencies
 just dev              # Start full dev environment via Docker Compose
 ```
@@ -37,6 +37,8 @@ Run `just --list` to see all available recipes:
 | `just dev-backend` | Start backend only |
 | `just dev-frontend` | Start frontend only |
 | `just generate` | Regenerate types from OpenAPI spec |
+| `just migrate` | Run database migrations |
+| `just reset-db` | Drop and recreate database |
 | `just lint` | Run all linters |
 | `just test` | Run all tests |
 | `just build` | Build production binaries |
