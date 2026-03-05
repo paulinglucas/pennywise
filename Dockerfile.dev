@@ -1,0 +1,10 @@
+FROM golang:1.24-alpine AS backend-dev
+RUN go install github.com/air-verse/air@latest
+WORKDIR /app
+COPY backend/go.mod backend/go.sum* ./backend/
+RUN cd backend && go mod download
+
+FROM node:22-alpine AS frontend-dev
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci

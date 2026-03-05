@@ -1,0 +1,31 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: backend-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app/backend
+      - ./api:/app/api
+      - ./data:/app/data
+    environment:
+      - PENNYWISE_DB_PATH=/app/data/pennywise.db
+      - PENNYWISE_JWT_SECRET=${PENNYWISE_JWT_SECRET:-dev-secret-replace-in-production-with-64-char-random-string}
+      - PENNYWISE_PORT=8080
+      - PENNYWISE_LOG_LEVEL=debug
+    command: air -c /app/backend/.air.toml
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: frontend-dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app/frontend
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    command: npm run dev -- --host 0.0.0.0

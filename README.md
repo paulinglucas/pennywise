@@ -1,1 +1,47 @@
-Personal finance tool to avoid ironically spending money ona  budgeting app
+# Pennywise
+
+Self-hosted personal finance dashboard. Dark mode. No ads. No data harvesting.
+
+Track spending, assets, debts, and goals across every financial account you own. Project your path to financial independence.
+
+Two users. One Raspberry Pi. Zero ongoing cost.
+
+## Tech Stack
+
+- **Backend:** Go 1.24, Chi router, SQLite (WAL mode)
+- **Frontend:** React 19, TypeScript 5, Tailwind CSS v4, TanStack Query, Recharts
+- **Contract:** OpenAPI spec with code generation (oapi-codegen + openapi-typescript)
+- **Tooling:** just, mise, Docker Compose, GitHub Actions CI
+
+## Prerequisites
+
+- [mise](https://mise.jdx.dev) for tool version management
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
+
+## Getting Started
+
+```bash
+mise install          # Install Go 1.24, Node 22, just
+just setup            # Install Go and Node dependencies
+just dev              # Start full dev environment via Docker Compose
+```
+
+## Available Commands
+
+Run `just --list` to see all available recipes:
+
+| Command | Description |
+|---------|-------------|
+| `just setup` | First-time project setup |
+| `just dev` | Start full dev environment |
+| `just dev-backend` | Start backend only |
+| `just dev-frontend` | Start frontend only |
+| `just generate` | Regenerate types from OpenAPI spec |
+| `just lint` | Run all linters |
+| `just test` | Run all tests |
+| `just build` | Build production binaries |
+| `just ci` | Run full CI check locally |
+
+## License
+
+MIT with additional restrictions. See [LICENSE](LICENSE).
