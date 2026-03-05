@@ -1,0 +1,37 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+formatters:
+  enable:
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/jamespsullivan/pennywise
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - revive
+    - gosec
+    - bodyclose
+    - noctx
+
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+        - name: unexported-return
+          disabled: true
+
+issues:
+  exclude-dirs:
+    - vendor
+  exclude-generated-strict: true
