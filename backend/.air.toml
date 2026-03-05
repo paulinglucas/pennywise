@@ -1,0 +1,22 @@
+root = "/app/backend"
+tmp_dir = "tmp"
+
+[build]
+  entrypoint = "./tmp/pennywise"
+  cmd = "cd /app/backend && go build -o ./tmp/pennywise ./cmd/server"
+  delay = 1000
+  exclude_dir = ["tmp", "vendor"]
+  exclude_regex = ["_test.go"]
+  include_ext = ["go", "toml", "yaml"]
+  kill_delay = "0s"
+  send_interrupt = false
+  stop_on_error = true
+
+[build.environment]
+  PENNYWISE_DB_PATH = "/app/data/pennywise.db"
+
+[log]
+  time = false
+
+[misc]
+  clean_on_exit = true
