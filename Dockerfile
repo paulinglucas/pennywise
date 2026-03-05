@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine AS backend-build
+FROM golang:1.25-alpine AS backend-build
 WORKDIR /build
 COPY backend/go.mod backend/go.sum* ./
 RUN go mod download

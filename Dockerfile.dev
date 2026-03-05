@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine AS backend-dev
+FROM golang:1.25-alpine AS backend-dev
 RUN go install github.com/air-verse/air@latest
 WORKDIR /app
 COPY backend/go.mod backend/go.sum* ./backend/
