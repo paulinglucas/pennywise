@@ -16,7 +16,7 @@ dev:
     docker compose up
 
 dev-backend:
-    cd backend && go run cmd/server/main.go
+    cd backend && PENNYWISE_DB_PATH=../{{db_path}} go run cmd/server/main.go
 
 dev-frontend:
     cd frontend && npm run dev
@@ -33,8 +33,22 @@ check-generated:
 
 # ---------- Database ----------
 
-migrate:
-    cd backend && go run cmd/server/main.go migrate
+db_path := "data/pennywise.db"
+backup_dir := "data/backups"
+max_backups := "5"
+
+backup-db:
+    #!/usr/bin/env sh
+    if [ ! -f {{db_path}} ]; then exit 0; fi
+    mkdir -p {{backup_dir}}
+    stamp=$(date +%Y%m%d_%H%M%S)
+    sqlite3 {{db_path}} "PRAGMA wal_checkpoint(TRUNCATE);"
+    cp {{db_path}} {{backup_dir}}/pennywise_${stamp}.db
+    ls -1t {{backup_dir}}/pennywise_*.db | tail -n +$(({{max_backups}} + 1)) | xargs -r rm -f
+    echo "backed up to {{backup_dir}}/pennywise_${stamp}.db"
+
+migrate: backup-db
+    cd backend && PENNYWISE_DB_PATH=../{{db_path}} go run cmd/server/main.go migrate
 
 reset-db:
     rm -f data/pennywise.db
