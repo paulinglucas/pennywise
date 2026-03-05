@@ -1,0 +1,42 @@
+# Environment
+.env
+.env.local
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+
+# Go
+bin/
+*.out
+*.exe
+
+# Node
+node_modules/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+.token
+
+# What he's gotta feed on
+CLAUDE.md
+BUILD_PLAN.md
+PENNYWISE_CONTEXT.md

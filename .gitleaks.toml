@@ -1,0 +1,7 @@
+title = "Pennywise gitleaks config"
+
+[allowlist]
+paths = [
+    ".env.example",
+    "scripts/seed_data.sql",
+]
