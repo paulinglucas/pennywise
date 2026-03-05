@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+:root {
+  --color-background: #0f1117;
+  --color-surface: #1a1d27;
+  --color-surface-hover: #242836;
+  --color-border: #2a2e3a;
+  --color-text-primary: #e2e4e9;
+  --color-text-secondary: #8b8f9a;
+  --color-positive: #4ade80;
+  --color-negative: #f59e0b;
+  --color-accent: #6366f1;
+  --color-accent-hover: #818cf8;
+  --color-error: #ef4444;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family:
+    "IBM Plex Sans",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
