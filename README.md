@@ -39,6 +39,8 @@ Run `just --list` to see all available recipes:
 | `just generate` | Regenerate types from OpenAPI spec |
 | `just migrate` | Run database migrations |
 | `just reset-db` | Drop and recreate database |
+| `just seed` | Reset database and load sample data |
+| `just backup-db` | Snapshot database before migrations |
 | `just lint` | Run all linters |
 | `just test` | Run all tests |
 | `just build` | Build production binaries |
