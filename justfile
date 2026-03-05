@@ -16,7 +16,7 @@ dev:
     docker compose up
 
 dev-backend:
-    cd backend && PENNYWISE_DB_PATH=../{{db_path}} go run cmd/server/main.go
+    cd backend && PENNYWISE_DB_PATH=../{{db_path}} go run ./cmd/server
 
 dev-frontend:
     cd frontend && npm run dev
@@ -48,7 +48,7 @@ backup-db:
     echo "backed up to {{backup_dir}}/pennywise_${stamp}.db"
 
 migrate: backup-db
-    cd backend && PENNYWISE_DB_PATH=../{{db_path}} go run cmd/server/main.go migrate
+    cd backend && PENNYWISE_DB_PATH=../{{db_path}} go run ./cmd/server migrate
 
 reset-db:
     rm -f data/pennywise.db
@@ -64,7 +64,8 @@ test: test-backend test-frontend
 
 test-backend:
     cd backend && go test ./... -race -coverprofile=coverage.out
-    cd backend && go tool cover -func=coverage.out
+    cd backend && grep -v '/api/generated\.go\|/api/stub\.go' coverage.out > coverage.filtered.out
+    cd backend && go tool cover -func=coverage.filtered.out
 
 test-frontend:
     cd frontend && npx vitest run --coverage
@@ -86,7 +87,7 @@ lint-frontend:
 build: build-backend build-frontend
 
 build-backend:
-    cd backend && CGO_ENABLED=0 go build -o ../bin/pennywise cmd/server/main.go
+    cd backend && CGO_ENABLED=0 go build -o ../bin/pennywise ./cmd/server
 
 build-frontend:
     cd frontend && npm run build

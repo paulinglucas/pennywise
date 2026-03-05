@@ -1,12 +1,24 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
+	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
+	"github.com/go-chi/chi/v5"
+
+	"github.com/jamespsullivan/pennywise/internal/api"
 	"github.com/jamespsullivan/pennywise/internal/db"
+	"github.com/jamespsullivan/pennywise/internal/db/queries"
+	"github.com/jamespsullivan/pennywise/internal/middleware"
 )
 
 func main() {
@@ -15,7 +27,85 @@ func main() {
 		return
 	}
 
-	fmt.Println("pennywise server")
+	runServer()
+}
+
+func runServer() {
+	logger := newLogger()
+
+	database := openDatabase()
+	defer func() { _ = database.Close() }()
+
+	handler := buildRouter(logger, database)
+
+	port := os.Getenv("PENNYWISE_PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	go func() {
+		logger.Info("server starting", slog.String("port", port))
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("server shutting down")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal(err)
+	}
+
+	logger.Info("server stopped")
+}
+
+func openDatabase() *sql.DB {
+	dbPath := dbPathFromEnv()
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0o750); err != nil {
+		log.Fatal(err)
+	}
+
+	database, err := db.Open(dbPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := db.Migrate(database); err != nil {
+		log.Fatal(err)
+	}
+
+	return database
+}
+
+func buildRouter(logger *slog.Logger, database *sql.DB) http.Handler {
+	secret := jwtSecret()
+	userRepo := queries.NewUserRepository(database)
+	handler := api.NewAuthHandler(userRepo, secret)
+
+	router := chi.NewRouter()
+	router.Use(middleware.RequestID)
+	router.Use(middleware.Logging(logger))
+
+	authMiddleware := middleware.Auth(secret, api.CookieAuthScopes)
+
+	return api.HandlerWithOptions(handler, api.ChiServerOptions{
+		BaseRouter:  router,
+		BaseURL:     "/api/v1",
+		Middlewares: []api.MiddlewareFunc{authMiddleware},
+	})
 }
 
 func runMigrate() {
@@ -44,4 +134,22 @@ func dbPathFromEnv() string {
 		path = "./data/pennywise.db"
 	}
 	return filepath.Clean(path)
+}
+
+func jwtSecret() []byte {
+	secret := os.Getenv("PENNYWISE_JWT_SECRET")
+	if secret == "" {
+		log.Fatal("PENNYWISE_JWT_SECRET environment variable is required")
+	}
+	return []byte(secret)
+}
+
+func newLogger() *slog.Logger {
+	level := slog.LevelInfo
+	if os.Getenv("PENNYWISE_LOG_LEVEL") == "debug" {
+		level = slog.LevelDebug
+	}
+	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: level,
+	}))
 }
