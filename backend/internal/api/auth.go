@@ -21,16 +21,22 @@ type UserRepository interface {
 
 type AppHandler struct {
 	StubHandler
-	users    UserRepository
-	accounts AccountRepository
-	secret   []byte
+	users        UserRepository
+	accounts     AccountRepository
+	transactions TransactionRepository
+	auditLog     AuditLogWriter
+	dlq          FailedRequestWriter
+	secret       []byte
 }
 
-func NewAppHandler(users UserRepository, accounts AccountRepository, secret []byte) *AppHandler {
+func NewAppHandler(users UserRepository, accounts AccountRepository, transactions TransactionRepository, auditLog AuditLogWriter, dlq FailedRequestWriter, secret []byte) *AppHandler {
 	return &AppHandler{
-		users:    users,
-		accounts: accounts,
-		secret:   secret,
+		users:        users,
+		accounts:     accounts,
+		transactions: transactions,
+		auditLog:     auditLog,
+		dlq:          dlq,
+		secret:       secret,
 	}
 }
 

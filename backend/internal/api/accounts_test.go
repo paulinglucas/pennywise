@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -221,4 +222,143 @@ func TestDeleteAccount_SoftDeletes(t *testing.T) {
 	router.ServeHTTP(getRec, getReq)
 
 	assert.Equal(t, http.StatusNotFound, getRec.Code)
+}
+
+func TestCreateAccount_InvalidJSON_Returns400(t *testing.T) {
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	req := authedRequest(http.MethodPost, "/api/v1/accounts", "not json", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var resp api.ErrorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, api.VALIDATIONFAILED, resp.Error.Code)
+}
+
+func TestCreateAccount_WithCurrency(t *testing.T) {
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"Euro Account","institution":"Deutsche Bank","account_type":"checking","currency":"EUR"}`
+	req := authedRequest(http.MethodPost, "/api/v1/accounts", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.AccountResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, "Euro Account", resp.Name)
+	assert.Equal(t, api.EUR, resp.Currency)
+}
+
+func TestUpdateAccount_NotFound_Returns404(t *testing.T) {
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"Updated"}`
+	req := authedRequest(http.MethodPut, "/api/v1/accounts/acc00099-0000-0000-0000-000000000099", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+
+	var resp api.ErrorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, api.NOTFOUND, resp.Error.Code)
+}
+
+func TestUpdateAccount_InvalidJSON_Returns400(t *testing.T) {
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"acc00010-0000-0000-0000-000000000010", "usr00001-0000-0000-0000-000000000001", "Test Account", "Chase", "checking", "USD", 1,
+	)
+	require.NoError(t, err)
+
+	req := authedRequest(http.MethodPut, "/api/v1/accounts/acc00010-0000-0000-0000-000000000010", "not json", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var resp api.ErrorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, api.VALIDATIONFAILED, resp.Error.Code)
+}
+
+func TestUpdateAccount_AllFields(t *testing.T) {
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"acc00011-0000-0000-0000-000000000011", "usr00001-0000-0000-0000-000000000001", "Original", "Old Bank", "checking", "USD", 1,
+	)
+	require.NoError(t, err)
+
+	body := `{"name":"Updated Name","institution":"New Bank","account_type":"savings","currency":"EUR","is_active":false}`
+	req := authedRequest(http.MethodPut, "/api/v1/accounts/acc00011-0000-0000-0000-000000000011", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.AccountResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, "Updated Name", resp.Name)
+	assert.Equal(t, "New Bank", resp.Institution)
+	assert.Equal(t, api.AccountTypeSavings, resp.AccountType)
+	assert.Equal(t, api.EUR, resp.Currency)
+	assert.False(t, resp.IsActive)
+}
+
+func TestDeleteAccount_NotFound_Returns404(t *testing.T) {
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	req := authedRequest(http.MethodDelete, "/api/v1/accounts/acc00099-0000-0000-0000-000000000099", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+
+	var resp api.ErrorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, api.NOTFOUND, resp.Error.Code)
+}
+
+func TestListAccounts_Pagination(t *testing.T) {
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	for i := 1; i <= 3; i++ {
+		id := fmt.Sprintf("acc00020-0000-0000-0000-0000000000%02d", i)
+		name := fmt.Sprintf("Account %d", i)
+		_, err := database.ExecContext(context.Background(),
+			`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			id, "usr00001-0000-0000-0000-000000000001", name, "Chase", "checking", "USD", 1,
+		)
+		require.NoError(t, err)
+	}
+
+	req := authedRequest(http.MethodGet, "/api/v1/accounts?page=1&per_page=2", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.AccountListResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Len(t, resp.Data, 2)
+	assert.Equal(t, 3, resp.Pagination.Total)
+	assert.Equal(t, 2, resp.Pagination.TotalPages)
+	assert.Equal(t, 1, resp.Pagination.Page)
+	assert.Equal(t, 2, resp.Pagination.PerPage)
 }
