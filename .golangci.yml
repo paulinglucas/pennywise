@@ -30,8 +30,3 @@ linters:
           disabled: true
         - name: unexported-return
           disabled: true
-
-issues:
-  exclude-dirs:
-    - vendor
-  exclude-generated-strict: true
