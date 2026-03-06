@@ -50,10 +50,15 @@ func setupRouter(t *testing.T) (*sql.DB, http.Handler) {
 	t.Helper()
 	database := setupTestDB(t)
 	userRepo := queries.NewUserRepository(database)
-	handler := api.NewAuthHandler(userRepo, testSecret)
+	accountRepo := queries.NewAccountRepository(database)
+	handler := api.NewAppHandler(userRepo, accountRepo, testSecret)
+
+	validator, err := middleware.Validation(api.OpenAPISpec, "/api/v1")
+	require.NoError(t, err)
 
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)
+	router.Use(validator)
 
 	authMiddleware := middleware.Auth(testSecret, api.CookieAuthScopes)
 

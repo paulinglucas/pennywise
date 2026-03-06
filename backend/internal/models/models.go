@@ -10,3 +10,16 @@ type User struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
+
+type Account struct {
+	ID          string
+	UserID      string
+	Name        string
+	Institution string
+	AccountType string
+	Currency    string
+	IsActive    bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	DeletedAt   *time.Time
+}

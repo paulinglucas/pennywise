@@ -25,6 +25,7 @@ dev-frontend:
 
 generate:
     oapi-codegen -package api -generate types,chi-server api/openapi.yaml > backend/internal/api/generated.go
+    cp api/openapi.yaml backend/internal/api/openapi.yaml
     cd frontend && npx openapi-typescript ../api/openapi.yaml -o src/api/generated.ts
 
 check-generated:

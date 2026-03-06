@@ -19,20 +19,22 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id string) (*models.User, error)
 }
 
-type AuthHandler struct {
+type AppHandler struct {
 	StubHandler
-	users  UserRepository
-	secret []byte
+	users    UserRepository
+	accounts AccountRepository
+	secret   []byte
 }
 
-func NewAuthHandler(users UserRepository, secret []byte) *AuthHandler {
-	return &AuthHandler{
-		users:  users,
-		secret: secret,
+func NewAppHandler(users UserRepository, accounts AccountRepository, secret []byte) *AppHandler {
+	return &AppHandler{
+		users:    users,
+		accounts: accounts,
+		secret:   secret,
 	}
 }
 
-func (h *AuthHandler) PostAuthLogin(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) PostAuthLogin(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		requestID := middleware.GetRequestID(r.Context())
@@ -71,7 +73,7 @@ func (h *AuthHandler) PostAuthLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *AuthHandler) PostAuthLogout(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) PostAuthLogout(w http.ResponseWriter, r *http.Request) {
 	setTokenCookie(w, "", -1)
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -88,7 +90,7 @@ func setTokenCookie(w http.ResponseWriter, value string, maxAge int) {
 	})
 }
 
-func (h *AuthHandler) GetAuthMe(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) GetAuthMe(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 	requestID := middleware.GetRequestID(r.Context())
 

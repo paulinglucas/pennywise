@@ -56,6 +56,10 @@ func runServer() {
 		}
 	}()
 
+	awaitShutdown(logger, server)
+}
+
+func awaitShutdown(logger *slog.Logger, server *http.Server) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -93,11 +97,18 @@ func openDatabase() *sql.DB {
 func buildRouter(logger *slog.Logger, database *sql.DB) http.Handler {
 	secret := jwtSecret()
 	userRepo := queries.NewUserRepository(database)
-	handler := api.NewAuthHandler(userRepo, secret)
+	accountRepo := queries.NewAccountRepository(database)
+	handler := api.NewAppHandler(userRepo, accountRepo, secret)
+
+	validator, err := middleware.Validation(api.OpenAPISpec, "/api/v1")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)
 	router.Use(middleware.Logging(logger))
+	router.Use(validator)
 
 	authMiddleware := middleware.Auth(secret, api.CookieAuthScopes)
 

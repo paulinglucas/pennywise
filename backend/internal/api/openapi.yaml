@@ -1,0 +1,1977 @@
+openapi: 3.0.3
+info:
+  title: Pennywise API
+  version: 1.0.0
+  description: Self-hosted personal finance dashboard API
+
+servers:
+  - url: /api/v1
+
+security:
+  - cookieAuth: []
+
+paths:
+  /auth/login:
+    post:
+      operationId: postAuthLogin
+      tags: [auth]
+      security: []
+      summary: Authenticate and receive JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/logout:
+    post:
+      operationId: postAuthLogout
+      tags: [auth]
+      summary: Clear auth cookie
+      responses:
+        "204":
+          description: Logged out
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/me:
+    get:
+      operationId: getAuthMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /accounts:
+    get:
+      operationId: listAccounts
+      tags: [accounts]
+      summary: List accounts for current user
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PerPageParam"
+      responses:
+        "200":
+          description: Account list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createAccount
+      tags: [accounts]
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountRequest"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /accounts/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdParam"
+    get:
+      operationId: getAccount
+      tags: [accounts]
+      summary: Get account by ID
+      responses:
+        "200":
+          description: Account detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateAccount
+      tags: [accounts]
+      summary: Update an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccountRequest"
+      responses:
+        "200":
+          description: Account updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAccount
+      tags: [accounts]
+      summary: Soft delete an account
+      responses:
+        "204":
+          description: Account deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /transactions:
+    get:
+      operationId: listTransactions
+      tags: [transactions]
+      summary: List transactions with filtering and pagination
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PerPageParam"
+        - name: account_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            $ref: "#/components/schemas/TransactionType"
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: amount_min
+          in: query
+          schema:
+            type: number
+            minimum: 0
+        - name: amount_max
+          in: query
+          schema:
+            type: number
+            minimum: 0
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated tag names
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transaction list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createTransaction
+      tags: [transactions]
+      summary: Create a transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransactionRequest"
+      responses:
+        "201":
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /transactions/import:
+    post:
+      operationId: importTransactions
+      tags: [transactions]
+      summary: Bulk import transactions from CSV
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - account_id
+              properties:
+                file:
+                  type: string
+                  format: binary
+                account_id:
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Transactions imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /transactions/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdParam"
+    get:
+      operationId: getTransaction
+      tags: [transactions]
+      summary: Get transaction by ID
+      responses:
+        "200":
+          description: Transaction detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateTransaction
+      tags: [transactions]
+      summary: Update a transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTransactionRequest"
+      responses:
+        "200":
+          description: Transaction updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteTransaction
+      tags: [transactions]
+      summary: Soft delete a transaction
+      responses:
+        "204":
+          description: Transaction deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /assets:
+    get:
+      operationId: listAssets
+      tags: [assets]
+      summary: List assets with portfolio summary
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PerPageParam"
+      responses:
+        "200":
+          description: Asset list with portfolio summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createAsset
+      tags: [assets]
+      summary: Create an asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetRequest"
+      responses:
+        "201":
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /assets/allocation:
+    get:
+      operationId: getAssetAllocation
+      tags: [assets]
+      summary: Portfolio allocation breakdown over time
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [1m, 3m, 6m, 1y, all]
+            default: 6m
+      responses:
+        "200":
+          description: Allocation data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllocationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /assets/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdParam"
+    get:
+      operationId: getAsset
+      tags: [assets]
+      summary: Get asset with value history
+      responses:
+        "200":
+          description: Asset detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateAsset
+      tags: [assets]
+      summary: Update asset value and metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssetRequest"
+      responses:
+        "200":
+          description: Asset updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAsset
+      tags: [assets]
+      summary: Soft delete an asset
+      responses:
+        "204":
+          description: Asset deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /assets/{id}/history:
+    parameters:
+      - $ref: "#/components/parameters/IdParam"
+    get:
+      operationId: getAssetHistory
+      tags: [assets]
+      summary: Get value history time series
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [1m, 3m, 6m, 1y, all]
+            default: 6m
+      responses:
+        "200":
+          description: Asset history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetHistoryResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /goals:
+    get:
+      operationId: listGoals
+      tags: [goals]
+      summary: List goals ordered by priority
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PerPageParam"
+      responses:
+        "200":
+          description: Goal list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createGoal
+      tags: [goals]
+      summary: Create a goal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGoalRequest"
+      responses:
+        "201":
+          description: Goal created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /goals/reorder:
+    put:
+      operationId: reorderGoals
+      tags: [goals]
+      summary: Update priority rankings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoalReorderRequest"
+      responses:
+        "200":
+          description: Goals reordered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalListResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /goals/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdParam"
+    get:
+      operationId: getGoal
+      tags: [goals]
+      summary: Get goal with computed projections
+      responses:
+        "200":
+          description: Goal detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateGoal
+      tags: [goals]
+      summary: Update a goal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGoalRequest"
+      responses:
+        "200":
+          description: Goal updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteGoal
+      tags: [goals]
+      summary: Soft delete a goal
+      responses:
+        "204":
+          description: Goal deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /recurring:
+    get:
+      operationId: listRecurring
+      tags: [recurring]
+      summary: List recurring transactions
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PerPageParam"
+      responses:
+        "200":
+          description: Recurring transaction list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecurringListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createRecurring
+      tags: [recurring]
+      summary: Create a recurring transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRecurringRequest"
+      responses:
+        "201":
+          description: Recurring transaction created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecurringResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /recurring/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdParam"
+    put:
+      operationId: updateRecurring
+      tags: [recurring]
+      summary: Update a recurring transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRecurringRequest"
+      responses:
+        "200":
+          description: Recurring transaction updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecurringResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteRecurring
+      tags: [recurring]
+      summary: Deactivate a recurring transaction
+      responses:
+        "204":
+          description: Recurring transaction deactivated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Aggregated dashboard data
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /dashboard/net-worth-history:
+    get:
+      operationId: getNetWorthHistory
+      tags: [dashboard]
+      summary: Net worth time series
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [1m, 1y, 5y, all]
+            default: 1y
+      responses:
+        "200":
+          description: Net worth history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetWorthHistoryResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /projections:
+    post:
+      operationId: computeProjection
+      tags: [projections]
+      summary: Compute financial projection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectionRequest"
+      responses:
+        "200":
+          description: Projection result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      summary: List unread alerts
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PerPageParam"
+      responses:
+        "200":
+          description: Alert list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /alerts/{id}/read:
+    parameters:
+      - $ref: "#/components/parameters/IdParam"
+    put:
+      operationId: markAlertRead
+      tags: [alerts]
+      summary: Mark alert as read
+      responses:
+        "204":
+          description: Alert marked as read
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /export:
+    get:
+      operationId: exportData
+      tags: [export]
+      summary: Full JSON dump of all user data
+      responses:
+        "200":
+          description: Export data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /export/csv:
+    get:
+      operationId: exportCsv
+      tags: [export]
+      summary: CSV dump of transactions
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /health:
+    get:
+      operationId: getHealth
+      tags: [health]
+      security: []
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: Unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /telemetry/vitals:
+    post:
+      operationId: postVitals
+      tags: [telemetry]
+      security: []
+      summary: Frontend Web Vitals ingestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VitalsRequest"
+      responses:
+        "204":
+          description: Vitals recorded
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: token
+
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    PerPageParam:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+
+  responses:
+    ValidationFailed:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - request_id
+          properties:
+            code:
+              $ref: "#/components/schemas/ErrorCode"
+            message:
+              type: string
+            request_id:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_FAILED
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - NOT_FOUND
+        - CONFLICT
+        - RATE_LIMITED
+        - INTERNAL_ERROR
+
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - per_page
+        - total
+        - total_pages
+      properties:
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+
+    LoginResponse:
+      type: object
+      required:
+        - user
+      properties:
+        user:
+          $ref: "#/components/schemas/UserResponse"
+
+    UserResponse:
+      type: object
+      required:
+        - id
+        - email
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        name:
+          type: string
+
+    TransactionType:
+      type: string
+      enum:
+        - expense
+        - deposit
+
+    AccountType:
+      type: string
+      enum:
+        - checking
+        - savings
+        - hysa
+        - credit_card
+        - mortgage
+        - brokerage
+        - retirement_401k
+        - retirement_ira
+        - retirement_roth_ira
+        - rollover_ira
+        - hsa
+        - crypto_wallet
+        - safe_agreement
+        - credit_line
+        - venmo
+        - other
+
+    AssetType:
+      type: string
+      enum:
+        - liquid
+        - retirement
+        - real_estate
+        - brokerage
+        - speculative
+        - other
+
+    GoalType:
+      type: string
+      enum:
+        - debt_payoff
+        - savings
+
+    Currency:
+      type: string
+      enum:
+        - USD
+        - BTC
+        - ETH
+        - EUR
+
+    Frequency:
+      type: string
+      enum:
+        - weekly
+        - biweekly
+        - monthly
+        - quarterly
+        - yearly
+
+    AlertSeverity:
+      type: string
+      enum:
+        - info
+        - warning
+        - critical
+
+    Scenario:
+      type: string
+      enum:
+        - best
+        - average
+        - worst
+
+    CreateAccountRequest:
+      type: object
+      required:
+        - name
+        - institution
+        - account_type
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        institution:
+          type: string
+          minLength: 1
+          maxLength: 255
+        account_type:
+          $ref: "#/components/schemas/AccountType"
+        currency:
+          $ref: "#/components/schemas/Currency"
+
+    UpdateAccountRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        institution:
+          type: string
+          minLength: 1
+          maxLength: 255
+        account_type:
+          $ref: "#/components/schemas/AccountType"
+        currency:
+          $ref: "#/components/schemas/Currency"
+        is_active:
+          type: boolean
+
+    AccountResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - name
+        - institution
+        - account_type
+        - currency
+        - is_active
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        institution:
+          type: string
+        account_type:
+          $ref: "#/components/schemas/AccountType"
+        currency:
+          $ref: "#/components/schemas/Currency"
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AccountListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountResponse"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    CreateTransactionRequest:
+      type: object
+      required:
+        - type
+        - category
+        - amount
+        - date
+        - account_id
+      properties:
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        category:
+          type: string
+          minLength: 1
+        tags:
+          type: array
+          items:
+            type: string
+        amount:
+          type: number
+          minimum: 0.01
+        currency:
+          $ref: "#/components/schemas/Currency"
+        date:
+          type: string
+          format: date
+        account_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+        is_recurring:
+          type: boolean
+
+    UpdateTransactionRequest:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        category:
+          type: string
+          minLength: 1
+        tags:
+          type: array
+          items:
+            type: string
+        amount:
+          type: number
+          minimum: 0.01
+        currency:
+          $ref: "#/components/schemas/Currency"
+        date:
+          type: string
+          format: date
+        account_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+        is_recurring:
+          type: boolean
+
+    TransactionResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - account_id
+        - type
+        - category
+        - amount
+        - currency
+        - date
+        - is_recurring
+        - tags
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        category:
+          type: string
+        amount:
+          type: number
+        currency:
+          $ref: "#/components/schemas/Currency"
+        date:
+          type: string
+          format: date
+        notes:
+          type: string
+        is_recurring:
+          type: boolean
+        recurring_transaction_id:
+          type: string
+          format: uuid
+        tags:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TransactionListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransactionResponse"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    ImportResponse:
+      type: object
+      required:
+        - imported
+        - errors
+      properties:
+        imported:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: object
+            required:
+              - row
+              - message
+            properties:
+              row:
+                type: integer
+              message:
+                type: string
+
+    CreateAssetRequest:
+      type: object
+      required:
+        - name
+        - asset_type
+        - current_value
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        asset_type:
+          $ref: "#/components/schemas/AssetType"
+        current_value:
+          type: number
+          minimum: 0
+        currency:
+          $ref: "#/components/schemas/Currency"
+        account_id:
+          type: string
+          format: uuid
+        metadata:
+          type: object
+          additionalProperties: true
+
+    UpdateAssetRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        asset_type:
+          $ref: "#/components/schemas/AssetType"
+        current_value:
+          type: number
+          minimum: 0
+        currency:
+          $ref: "#/components/schemas/Currency"
+        account_id:
+          type: string
+          format: uuid
+        metadata:
+          type: object
+          additionalProperties: true
+
+    AssetResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - name
+        - asset_type
+        - current_value
+        - currency
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        asset_type:
+          $ref: "#/components/schemas/AssetType"
+        current_value:
+          type: number
+        currency:
+          $ref: "#/components/schemas/Currency"
+        metadata:
+          type: object
+          additionalProperties: true
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetHistoryEntry"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AssetHistoryEntry:
+      type: object
+      required:
+        - id
+        - asset_id
+        - value
+        - recorded_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        asset_id:
+          type: string
+          format: uuid
+        value:
+          type: number
+        recorded_at:
+          type: string
+          format: date-time
+
+    AssetListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+        - summary
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetResponse"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+        summary:
+          $ref: "#/components/schemas/PortfolioSummary"
+
+    PortfolioSummary:
+      type: object
+      required:
+        - total_value
+        - allocation
+      properties:
+        total_value:
+          type: number
+        allocation:
+          type: array
+          items:
+            $ref: "#/components/schemas/AllocationEntry"
+
+    AllocationEntry:
+      type: object
+      required:
+        - asset_type
+        - value
+        - percentage
+      properties:
+        asset_type:
+          $ref: "#/components/schemas/AssetType"
+        value:
+          type: number
+        percentage:
+          type: number
+
+    AssetHistoryResponse:
+      type: object
+      required:
+        - asset_id
+        - entries
+      properties:
+        asset_id:
+          type: string
+          format: uuid
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetHistoryEntry"
+
+    AllocationResponse:
+      type: object
+      required:
+        - snapshots
+      properties:
+        snapshots:
+          type: array
+          items:
+            type: object
+            required:
+              - date
+              - allocations
+            properties:
+              date:
+                type: string
+                format: date
+              allocations:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AllocationEntry"
+
+    CreateGoalRequest:
+      type: object
+      required:
+        - name
+        - goal_type
+        - target_amount
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        goal_type:
+          $ref: "#/components/schemas/GoalType"
+        target_amount:
+          type: number
+          minimum: 0.01
+        current_amount:
+          type: number
+          minimum: 0
+        deadline:
+          type: string
+          format: date
+        linked_account_id:
+          type: string
+          format: uuid
+        priority_rank:
+          type: integer
+          minimum: 1
+
+    UpdateGoalRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        goal_type:
+          $ref: "#/components/schemas/GoalType"
+        target_amount:
+          type: number
+          minimum: 0.01
+        current_amount:
+          type: number
+          minimum: 0
+        deadline:
+          type: string
+          format: date
+        linked_account_id:
+          type: string
+          format: uuid
+        priority_rank:
+          type: integer
+          minimum: 1
+
+    GoalResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - name
+        - goal_type
+        - target_amount
+        - current_amount
+        - priority_rank
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        goal_type:
+          $ref: "#/components/schemas/GoalType"
+        target_amount:
+          type: number
+        current_amount:
+          type: number
+        deadline:
+          type: string
+          format: date
+        linked_account_id:
+          type: string
+          format: uuid
+        priority_rank:
+          type: integer
+        required_monthly_contribution:
+          type: number
+        projected_completion_date:
+          type: string
+          format: date
+        on_track:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    GoalListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoalResponse"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    GoalReorderRequest:
+      type: object
+      required:
+        - rankings
+      properties:
+        rankings:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - priority_rank
+            properties:
+              id:
+                type: string
+                format: uuid
+              priority_rank:
+                type: integer
+                minimum: 1
+
+    CreateRecurringRequest:
+      type: object
+      required:
+        - account_id
+        - type
+        - category
+        - amount
+        - frequency
+        - next_occurrence
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        category:
+          type: string
+          minLength: 1
+        amount:
+          type: number
+          minimum: 0.01
+        currency:
+          $ref: "#/components/schemas/Currency"
+        frequency:
+          $ref: "#/components/schemas/Frequency"
+        next_occurrence:
+          type: string
+          format: date
+
+    UpdateRecurringRequest:
+      type: object
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        category:
+          type: string
+          minLength: 1
+        amount:
+          type: number
+          minimum: 0.01
+        currency:
+          $ref: "#/components/schemas/Currency"
+        frequency:
+          $ref: "#/components/schemas/Frequency"
+        next_occurrence:
+          type: string
+          format: date
+        is_active:
+          type: boolean
+
+    RecurringResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - account_id
+        - type
+        - category
+        - amount
+        - currency
+        - frequency
+        - next_occurrence
+        - is_active
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        category:
+          type: string
+        amount:
+          type: number
+        currency:
+          $ref: "#/components/schemas/Currency"
+        frequency:
+          $ref: "#/components/schemas/Frequency"
+        next_occurrence:
+          type: string
+          format: date
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RecurringListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecurringResponse"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    DashboardResponse:
+      type: object
+      required:
+        - net_worth
+        - cash_flow_this_month
+        - spending_by_category
+        - debts_summary
+      properties:
+        net_worth:
+          type: number
+        cash_flow_this_month:
+          type: number
+        spending_by_category:
+          type: array
+          items:
+            type: object
+            required:
+              - category
+              - amount
+              - percentage
+            properties:
+              category:
+                type: string
+              amount:
+                type: number
+              percentage:
+                type: number
+        debts_summary:
+          type: array
+          items:
+            type: object
+            required:
+              - account_id
+              - name
+              - balance
+              - monthly_payment
+            properties:
+              account_id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              balance:
+                type: number
+              monthly_payment:
+                type: number
+              payoff_date:
+                type: string
+                format: date
+              months_remaining:
+                type: integer
+
+    NetWorthHistoryResponse:
+      type: object
+      required:
+        - data_points
+      properties:
+        data_points:
+          type: array
+          items:
+            type: object
+            required:
+              - date
+              - value
+            properties:
+              date:
+                type: string
+                format: date
+              value:
+                type: number
+
+    ProjectionRequest:
+      type: object
+      required:
+        - years_to_project
+      properties:
+        monthly_savings_adjustment:
+          type: number
+          description: Percentage adjustment to current savings rate
+        return_rate:
+          type: number
+          minimum: 0
+          maximum: 100
+        years_to_project:
+          type: integer
+          minimum: 1
+          maximum: 40
+        one_time_events:
+          type: array
+          items:
+            type: object
+            required:
+              - amount
+              - date
+              - type
+            properties:
+              amount:
+                type: number
+              date:
+                type: string
+                format: date
+              type:
+                type: string
+                enum:
+                  - windfall
+                  - expense
+
+    ProjectionResponse:
+      type: object
+      required:
+        - scenarios
+      properties:
+        scenarios:
+          type: array
+          items:
+            type: object
+            required:
+              - scenario
+              - data_points
+            properties:
+              scenario:
+                $ref: "#/components/schemas/Scenario"
+              data_points:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - date
+                    - value
+                  properties:
+                    date:
+                      type: string
+                      format: date
+                    value:
+                      type: number
+              millionaire_date:
+                type: string
+                format: date
+
+    AlertResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - alert_type
+        - message
+        - severity
+        - is_read
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        alert_type:
+          type: string
+        message:
+          type: string
+        severity:
+          $ref: "#/components/schemas/AlertSeverity"
+        is_read:
+          type: boolean
+        related_entity_type:
+          type: string
+        related_entity_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    AlertListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertResponse"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    ExportResponse:
+      type: object
+      required:
+        - user
+        - accounts
+        - transactions
+        - assets
+        - goals
+        - recurring_transactions
+        - alerts
+        - exported_at
+      properties:
+        user:
+          $ref: "#/components/schemas/UserResponse"
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountResponse"
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransactionResponse"
+        assets:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetResponse"
+        goals:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoalResponse"
+        recurring_transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecurringResponse"
+        alerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertResponse"
+        exported_at:
+          type: string
+          format: date-time
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - version
+        - uptime_seconds
+        - database
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - healthy
+            - unhealthy
+        version:
+          type: string
+        uptime_seconds:
+          type: integer
+        database:
+          type: string
+          enum:
+            - connected
+            - disconnected
+        timestamp:
+          type: string
+          format: date-time
+
+    VitalsRequest:
+      type: object
+      required:
+        - metrics
+      properties:
+        metrics:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - value
+            properties:
+              name:
+                type: string
+              value:
+                type: number
+              id:
+                type: string
