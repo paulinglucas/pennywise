@@ -267,6 +267,14 @@ func TestMigrate(t *testing.T) {
 	})
 }
 
+func TestMigrate_ClosedDB_ReturnsError(t *testing.T) {
+	database := openTestDB(t)
+	_ = database.Close()
+
+	err := Migrate(database)
+	require.Error(t, err)
+}
+
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.db")

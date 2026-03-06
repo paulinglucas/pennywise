@@ -17,6 +17,7 @@ import (
 	"github.com/jamespsullivan/pennywise/internal/api"
 	"github.com/jamespsullivan/pennywise/internal/db"
 	"github.com/jamespsullivan/pennywise/internal/db/queries"
+	"github.com/jamespsullivan/pennywise/internal/dlq"
 	"github.com/jamespsullivan/pennywise/internal/middleware"
 )
 
@@ -51,7 +52,10 @@ func setupRouter(t *testing.T) (*sql.DB, http.Handler) {
 	database := setupTestDB(t)
 	userRepo := queries.NewUserRepository(database)
 	accountRepo := queries.NewAccountRepository(database)
-	handler := api.NewAppHandler(userRepo, accountRepo, testSecret)
+	txnRepo := queries.NewTransactionRepository(database)
+	auditRepo := queries.NewAuditLogRepository(database)
+	dlqWriter := dlq.NewFailedRequestWriter(database)
+	handler := api.NewAppHandler(userRepo, accountRepo, txnRepo, auditRepo, dlqWriter, testSecret)
 
 	validator, err := middleware.Validation(api.OpenAPISpec, "/api/v1")
 	require.NoError(t, err)

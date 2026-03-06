@@ -38,6 +38,7 @@ Thumbs.db
 scripts/test-phase*.sh
 
 # What he's gotta feed on
+.claude/
 CLAUDE.md
 BUILD_PLAN.md
 PENNYWISE_CONTEXT.md

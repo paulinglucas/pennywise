@@ -4,26 +4,6 @@ import "net/http"
 
 type StubHandler struct{}
 
-func (s *StubHandler) ListAccounts(w http.ResponseWriter, r *http.Request, params ListAccountsParams) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) DeleteAccount(w http.ResponseWriter, r *http.Request, id IdParam) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) GetAccount(w http.ResponseWriter, r *http.Request, id IdParam) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) UpdateAccount(w http.ResponseWriter, r *http.Request, id IdParam) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
 func (s *StubHandler) ListAlerts(w http.ResponseWriter, r *http.Request, params ListAlertsParams) {
 	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
 }
@@ -125,29 +105,5 @@ func (s *StubHandler) UpdateRecurring(w http.ResponseWriter, r *http.Request, id
 }
 
 func (s *StubHandler) PostVitals(w http.ResponseWriter, r *http.Request) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) ListTransactions(w http.ResponseWriter, r *http.Request, params ListTransactionsParams) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) CreateTransaction(w http.ResponseWriter, r *http.Request) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) ImportTransactions(w http.ResponseWriter, r *http.Request) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) DeleteTransaction(w http.ResponseWriter, r *http.Request, id IdParam) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) GetTransaction(w http.ResponseWriter, r *http.Request, id IdParam) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) UpdateTransaction(w http.ResponseWriter, r *http.Request, id IdParam) {
 	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
 }
