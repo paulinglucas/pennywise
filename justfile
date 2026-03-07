@@ -64,9 +64,20 @@ seed:
 test: test-backend test-frontend
 
 test-backend:
-    cd backend && go test ./... -race -coverprofile=coverage.out
-    cd backend && grep -v '/api/generated\.go\|/api/stub\.go' coverage.out > coverage.filtered.out
-    cd backend && go tool cover -func=coverage.filtered.out
+    #!/usr/bin/env sh
+    set -e
+    cd backend
+    go test ./... -race -coverprofile=coverage.out
+    grep -v '/api/generated\.go\|/api/stub\.go\|cmd/server/' coverage.out > coverage.filtered.out
+    go tool cover -func=coverage.filtered.out
+    total=$(go tool cover -func=coverage.filtered.out | grep '^total:' | awk '{print $NF}' | tr -d '%')
+    threshold=80
+    result=$(echo "$total < $threshold" | bc)
+    if [ "$result" -eq 1 ]; then
+        echo "FAIL: coverage ${total}% is below threshold ${threshold}%"
+        exit 1
+    fi
+    echo "Coverage ${total}% meets threshold ${threshold}%"
 
 test-frontend:
     cd frontend && npx vitest run --coverage

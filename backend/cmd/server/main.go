@@ -20,6 +20,7 @@ import (
 	"github.com/jamespsullivan/pennywise/internal/db/queries"
 	"github.com/jamespsullivan/pennywise/internal/dlq"
 	"github.com/jamespsullivan/pennywise/internal/middleware"
+	"github.com/jamespsullivan/pennywise/internal/observability"
 )
 
 func main() {
@@ -33,6 +34,12 @@ func main() {
 
 func runServer() {
 	logger := newLogger()
+
+	shutdownTracer, err := observability.InitTracer(logger, os.Stdout)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() { _ = shutdownTracer(context.Background()) }()
 
 	database := openDatabase()
 	defer func() { _ = database.Close() }()
@@ -114,18 +121,25 @@ func buildRouter(logger *slog.Logger, database *sql.DB) http.Handler {
 		log.Fatal(err)
 	}
 
-	router := chi.NewRouter()
-	router.Use(middleware.RequestID)
-	router.Use(middleware.Logging(logger))
-	router.Use(validator)
+	apiRouter := chi.NewRouter()
+	apiRouter.Use(middleware.RequestID)
+	apiRouter.Use(middleware.Logging(logger))
+	apiRouter.Use(observability.MetricsMiddleware)
+	apiRouter.Use(validator)
 
 	authMiddleware := middleware.Auth(secret, api.CookieAuthScopes)
 
-	return api.HandlerWithOptions(handler, api.ChiServerOptions{
-		BaseRouter:  router,
+	apiHandler := api.HandlerWithOptions(handler, api.ChiServerOptions{
+		BaseRouter:  apiRouter,
 		BaseURL:     "/api/v1",
 		Middlewares: []api.MiddlewareFunc{authMiddleware},
 	})
+
+	root := chi.NewRouter()
+	root.Mount("/", apiHandler)
+	root.Handle("/metrics", observability.LocalhostOnly(observability.MetricsHandler()))
+
+	return root
 }
 
 func runMigrate() {

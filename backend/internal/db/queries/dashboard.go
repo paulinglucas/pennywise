@@ -6,6 +6,8 @@ import (
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
+
+	"github.com/jamespsullivan/pennywise/internal/observability"
 )
 
 type DashboardRepository struct {
@@ -39,6 +41,9 @@ type NetWorthDataPoint struct {
 }
 
 func (r *DashboardRepository) GetNetWorth(ctx context.Context, userID string) (NetWorthResult, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("get_net_worth", time.Since(start)) }()
+
 	var result NetWorthResult
 
 	err := r.db.QueryRowContext(ctx,
@@ -64,6 +69,9 @@ func (r *DashboardRepository) GetNetWorth(ctx context.Context, userID string) (N
 }
 
 func (r *DashboardRepository) GetCashFlowThisMonth(ctx context.Context, userID string, now time.Time) (float64, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("get_cash_flow", time.Since(start)) }()
+
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	monthEnd := monthStart.AddDate(0, 1, 0)
 
@@ -84,6 +92,9 @@ func (r *DashboardRepository) GetCashFlowThisMonth(ctx context.Context, userID s
 }
 
 func (r *DashboardRepository) GetSpendingByCategory(ctx context.Context, userID string, now time.Time) ([]SpendingRow, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("get_spending_by_category", time.Since(start)) }()
+
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	monthEnd := monthStart.AddDate(0, 1, 0)
 
@@ -113,6 +124,9 @@ func (r *DashboardRepository) GetSpendingByCategory(ctx context.Context, userID 
 }
 
 func (r *DashboardRepository) GetDebtsSummary(ctx context.Context, userID string, now time.Time) ([]DebtRow, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("get_debts_summary", time.Since(start)) }()
+
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	monthEnd := monthStart.AddDate(0, 1, 0)
 
@@ -149,6 +163,9 @@ func (r *DashboardRepository) GetDebtsSummary(ctx context.Context, userID string
 }
 
 func (r *DashboardRepository) GetNetWorthHistory(ctx context.Context, userID string, since time.Time) ([]NetWorthDataPoint, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("get_net_worth_history", time.Since(start)) }()
+
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT DATE(ah.recorded_at) as snap_date, SUM(ah.value) as total_value
 		 FROM asset_history ah

@@ -46,6 +46,18 @@ Run `just --list` to see all available recipes:
 | `just build` | Build production binaries |
 | `just ci` | Run full CI check locally |
 
+## Observability
+
+The backend exposes a `/metrics` endpoint (Prometheus format, localhost-only) and OpenTelemetry tracing. A pre-built Grafana dashboard is included at `deploy/grafana-dashboard.json`.
+
+To set up monitoring:
+
+1. Configure Prometheus with `deploy/prometheus.yml`
+2. Import `deploy/grafana-dashboard.json` into Grafana
+3. Panels include: request rate, error rate, response time percentiles, DB query performance, failed request trends
+
+Web Vitals from the frontend are ingested via `POST /api/v1/telemetry/vitals` (no auth required).
+
 ## License
 
 MIT with additional restrictions. See [LICENSE](LICENSE).
