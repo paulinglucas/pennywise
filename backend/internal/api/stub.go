@@ -28,30 +28,6 @@ func (s *StubHandler) ExportCsv(w http.ResponseWriter, r *http.Request) {
 	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
 }
 
-func (s *StubHandler) ListGoals(w http.ResponseWriter, r *http.Request, params ListGoalsParams) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) CreateGoal(w http.ResponseWriter, r *http.Request) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) ReorderGoals(w http.ResponseWriter, r *http.Request) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) DeleteGoal(w http.ResponseWriter, r *http.Request, id IdParam) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) GetGoal(w http.ResponseWriter, r *http.Request, id IdParam) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) UpdateGoal(w http.ResponseWriter, r *http.Request, id IdParam) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
 func (s *StubHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
 }
