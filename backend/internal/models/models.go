@@ -80,6 +80,21 @@ type AssetHistory struct {
 	RecordedAt time.Time
 }
 
+type Goal struct {
+	ID              string
+	UserID          string
+	Name            string
+	GoalType        string
+	TargetAmount    float64
+	CurrentAmount   float64
+	Deadline        *time.Time
+	LinkedAccountID *string
+	PriorityRank    int
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	DeletedAt       *time.Time
+}
+
 type FailedRequest struct {
 	ID             string
 	RequestID      *string

@@ -25,17 +25,19 @@ type AppHandler struct {
 	accounts     AccountRepository
 	transactions TransactionRepository
 	assets       AssetRepository
+	goals        GoalRepository
 	auditLog     AuditLogWriter
 	dlq          FailedRequestWriter
 	secret       []byte
 }
 
-func NewAppHandler(users UserRepository, accounts AccountRepository, transactions TransactionRepository, assets AssetRepository, auditLog AuditLogWriter, dlq FailedRequestWriter, secret []byte) *AppHandler {
+func NewAppHandler(users UserRepository, accounts AccountRepository, transactions TransactionRepository, assets AssetRepository, goals GoalRepository, auditLog AuditLogWriter, dlq FailedRequestWriter, secret []byte) *AppHandler {
 	return &AppHandler{
 		users:        users,
 		accounts:     accounts,
 		transactions: transactions,
 		assets:       assets,
+		goals:        goals,
 		auditLog:     auditLog,
 		dlq:          dlq,
 		secret:       secret,
