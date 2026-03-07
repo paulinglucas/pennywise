@@ -46,6 +46,16 @@ Run `just --list` to see all available recipes:
 | `just build` | Build production binaries |
 | `just ci` | Run full CI check locally |
 
+## Frontend
+
+The React frontend provides a single-page app with:
+
+- **Auth flow:** Login page with cookie-based session, automatic redirect when unauthenticated
+- **App shell:** Responsive layout with sidebar navigation (desktop) and bottom tab bar (mobile)
+- **Routing:** Dashboard, Transactions, Assets, Goals, Projections pages
+- **API client:** Typed fetch wrapper using OpenAPI-generated types, with `ApiError` class for structured error handling
+- **State management:** TanStack Query for server state with auth-aware query caching
+
 ## Observability
 
 The backend exposes a `/metrics` endpoint (Prometheus format, localhost-only) and OpenTelemetry tracing. A pre-built Grafana dashboard is included at `deploy/grafana-dashboard.json`.

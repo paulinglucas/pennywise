@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/jamespsullivan/pennywise/internal/models"
+	"github.com/jamespsullivan/pennywise/internal/observability"
 )
 
 type SQLiteAssetRepository struct {
@@ -20,6 +21,9 @@ func NewAssetRepository(db *sql.DB) *SQLiteAssetRepository {
 }
 
 func (r *SQLiteAssetRepository) List(ctx context.Context, userID string, page, perPage int) ([]models.Asset, int, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("list_assets", time.Since(start)) }()
+
 	var total int
 	err := r.db.QueryRowContext(ctx,
 		"SELECT COUNT(*) FROM assets WHERE user_id = ? AND deleted_at IS NULL",
@@ -57,6 +61,9 @@ func (r *SQLiteAssetRepository) List(ctx context.Context, userID string, page, p
 }
 
 func (r *SQLiteAssetRepository) Create(ctx context.Context, asset *models.Asset) error {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("create_asset", time.Since(start)) }()
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -84,6 +91,9 @@ func (r *SQLiteAssetRepository) Create(ctx context.Context, asset *models.Asset)
 }
 
 func (r *SQLiteAssetRepository) GetByID(ctx context.Context, userID, id string) (*models.Asset, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("get_asset", time.Since(start)) }()
+
 	var a models.Asset
 	err := r.db.QueryRowContext(ctx,
 		`SELECT id, user_id, account_id, name, asset_type, current_value, currency, metadata, created_at, updated_at
@@ -100,6 +110,9 @@ func (r *SQLiteAssetRepository) GetByID(ctx context.Context, userID, id string) 
 }
 
 func (r *SQLiteAssetRepository) Update(ctx context.Context, asset *models.Asset, prevValue float64) (bool, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("update_asset", time.Since(start)) }()
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return false, err
@@ -137,6 +150,9 @@ func (r *SQLiteAssetRepository) Update(ctx context.Context, asset *models.Asset,
 }
 
 func (r *SQLiteAssetRepository) SoftDelete(ctx context.Context, userID, id string) (bool, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("delete_asset", time.Since(start)) }()
+
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE assets SET deleted_at=datetime('now'), updated_at=datetime('now')
 		 WHERE id=? AND user_id=? AND deleted_at IS NULL`,
@@ -153,6 +169,9 @@ func (r *SQLiteAssetRepository) SoftDelete(ctx context.Context, userID, id strin
 }
 
 func (r *SQLiteAssetRepository) GetHistory(ctx context.Context, userID, assetID string, since *time.Time) ([]models.AssetHistory, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("get_asset_history", time.Since(start)) }()
+
 	exists, err := r.assetExists(ctx, userID, assetID)
 	if err != nil {
 		return nil, err
@@ -194,6 +213,9 @@ type AllocationRow struct {
 }
 
 func (r *SQLiteAssetRepository) GetAllocation(ctx context.Context, userID string) ([]AllocationRow, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("get_allocation", time.Since(start)) }()
+
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT asset_type, SUM(current_value) as total_value
 		 FROM assets WHERE user_id = ? AND deleted_at IS NULL
@@ -222,6 +244,9 @@ type AllocationSnapshot struct {
 }
 
 func (r *SQLiteAssetRepository) GetAllocationOverTime(ctx context.Context, userID string, since *time.Time) ([]AllocationSnapshot, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("get_allocation_over_time", time.Since(start)) }()
+
 	query := `SELECT date(ah.recorded_at) as snap_date, a.asset_type, SUM(ah.value) as total_value
 		 FROM asset_history ah
 		 INNER JOIN assets a ON ah.asset_id = a.id

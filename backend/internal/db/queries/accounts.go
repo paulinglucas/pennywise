@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/jamespsullivan/pennywise/internal/models"
+	"github.com/jamespsullivan/pennywise/internal/observability"
 )
 
 type SQLiteAccountRepository struct {
@@ -17,6 +19,9 @@ func NewAccountRepository(db *sql.DB) *SQLiteAccountRepository {
 }
 
 func (r *SQLiteAccountRepository) List(ctx context.Context, userID string, page, perPage int) ([]models.Account, int, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("list_accounts", time.Since(start)) }()
+
 	var total int
 	err := r.db.QueryRowContext(ctx,
 		"SELECT COUNT(*) FROM accounts WHERE user_id = ? AND deleted_at IS NULL",
@@ -54,6 +59,9 @@ func (r *SQLiteAccountRepository) List(ctx context.Context, userID string, page,
 }
 
 func (r *SQLiteAccountRepository) Create(ctx context.Context, account *models.Account) error {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("create_account", time.Since(start)) }()
+
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, is_active)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -63,6 +71,9 @@ func (r *SQLiteAccountRepository) Create(ctx context.Context, account *models.Ac
 }
 
 func (r *SQLiteAccountRepository) GetByID(ctx context.Context, userID, id string) (*models.Account, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("get_account", time.Since(start)) }()
+
 	var a models.Account
 	err := r.db.QueryRowContext(ctx,
 		`SELECT id, user_id, name, institution, account_type, currency, is_active, created_at, updated_at
@@ -79,6 +90,9 @@ func (r *SQLiteAccountRepository) GetByID(ctx context.Context, userID, id string
 }
 
 func (r *SQLiteAccountRepository) Update(ctx context.Context, account *models.Account) (bool, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("update_account", time.Since(start)) }()
+
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE accounts SET name=?, institution=?, account_type=?, currency=?, is_active=?, updated_at=datetime('now')
 		 WHERE id=? AND user_id=? AND deleted_at IS NULL`,
@@ -96,6 +110,9 @@ func (r *SQLiteAccountRepository) Update(ctx context.Context, account *models.Ac
 }
 
 func (r *SQLiteAccountRepository) SoftDelete(ctx context.Context, userID, id string) (bool, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("delete_account", time.Since(start)) }()
+
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE accounts SET deleted_at=datetime('now'), updated_at=datetime('now')
 		 WHERE id=? AND user_id=? AND deleted_at IS NULL`,

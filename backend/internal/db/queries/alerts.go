@@ -3,8 +3,10 @@ package queries
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/jamespsullivan/pennywise/internal/models"
+	"github.com/jamespsullivan/pennywise/internal/observability"
 )
 
 type SQLiteAlertRepository struct {
@@ -16,6 +18,9 @@ func NewAlertRepository(db *sql.DB) *SQLiteAlertRepository {
 }
 
 func (r *SQLiteAlertRepository) List(ctx context.Context, userID string, page, perPage int) ([]models.Alert, int, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("list_alerts", time.Since(start)) }()
+
 	var total int
 	err := r.db.QueryRowContext(ctx,
 		"SELECT COUNT(*) FROM alerts WHERE user_id = ? AND is_read = 0",
@@ -51,6 +56,9 @@ func (r *SQLiteAlertRepository) List(ctx context.Context, userID string, page, p
 }
 
 func (r *SQLiteAlertRepository) MarkRead(ctx context.Context, userID, id string) (bool, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("mark_alert_read", time.Since(start)) }()
+
 	result, err := r.db.ExecContext(ctx,
 		"UPDATE alerts SET is_read = 1 WHERE id = ? AND user_id = ? AND is_read = 0",
 		id, userID,
