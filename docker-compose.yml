@@ -5,8 +5,7 @@ services:
       dockerfile: Dockerfile.dev
       target: backend-dev
       network: host
-    ports:
-      - "8080:8080"
+    network_mode: host
     volumes:
       - ./backend:/app/backend
       - ./api:/app/api
@@ -24,11 +23,10 @@ services:
       dockerfile: Dockerfile.dev
       target: frontend-dev
       network: host
-    ports:
-      - "5173:5173"
+    network_mode: host
     volumes:
       - ./frontend:/app/frontend
       - /app/frontend/node_modules
     environment:
-      - VITE_API_URL=http://backend:8080
+      - VITE_API_URL=http://localhost:8080
     command: npm run dev -- --host 0.0.0.0
