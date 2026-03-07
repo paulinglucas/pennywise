@@ -71,6 +71,14 @@ export default [
     },
   },
   {
+    files: ["vite.config.ts"],
+    languageOptions: {
+      globals: {
+        process: "readonly",
+      },
+    },
+  },
+  {
     ignores: ["dist/", "node_modules/", "coverage/", "src/api/generated.ts"],
   },
   prettier,

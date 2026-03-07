@@ -19,9 +19,14 @@ function navLinkClass({ isActive }: { isActive: boolean }): string {
 
 function navLinkStyle({ isActive }: { isActive: boolean }): React.CSSProperties {
   if (isActive) {
-    return { backgroundColor: "var(--color-accent)", color: "#fff" };
+    return {
+      backgroundColor: "var(--color-accent-muted)",
+      color: "var(--color-accent)",
+      borderLeft: "2px solid var(--color-accent)",
+      boxShadow: "var(--glow-sm)",
+    };
   }
-  return { color: "var(--color-text-secondary)" };
+  return { color: "var(--color-text-secondary)", borderLeft: "2px solid transparent" };
 }
 
 export default function Sidebar() {
@@ -35,8 +40,8 @@ export default function Sidebar() {
       aria-label="Main navigation"
     >
       <div
-        className="mb-6 px-3 text-lg font-semibold"
-        style={{ color: "var(--color-text-primary)" }}
+        className="mb-6 px-3 text-lg font-semibold tracking-wide"
+        style={{ color: "var(--color-accent)", textShadow: "0 0 20px var(--color-accent-muted)" }}
       >
         Pennywise
       </div>
@@ -63,6 +68,7 @@ export function MobileTabBar() {
       style={{
         backgroundColor: "var(--color-surface)",
         borderTop: "1px solid var(--color-border)",
+        boxShadow: "0 -2px 12px #22c55e10",
       }}
       aria-label="Main navigation"
     >

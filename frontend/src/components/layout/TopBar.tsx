@@ -11,6 +11,7 @@ export default function TopBar() {
       style={{
         backgroundColor: "var(--color-surface)",
         borderBottom: "1px solid var(--color-border)",
+        boxShadow: "0 2px 8px #22c55e08",
       }}
     >
       {user && (

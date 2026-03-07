@@ -1,17 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --color-background: #0f1117;
-  --color-surface: #1a1d27;
-  --color-surface-hover: #242836;
-  --color-border: #2a2e3a;
-  --color-text-primary: #e2e4e9;
-  --color-text-secondary: #8b8f9a;
-  --color-positive: #4ade80;
+  --color-background: #0a0e14;
+  --color-surface: #121820;
+  --color-surface-hover: #1a2230;
+  --color-border: #1e2a36;
+  --color-border-glow: #22c55e18;
+  --color-text-primary: #d4e0e0;
+  --color-text-secondary: #6b7f8a;
+  --color-positive: #22c55e;
   --color-negative: #f59e0b;
-  --color-accent: #6366f1;
-  --color-accent-hover: #818cf8;
+  --color-accent: #22c55e;
+  --color-accent-hover: #4ade80;
+  --color-accent-muted: #22c55e40;
   --color-error: #ef4444;
+  --glow-sm: 0 0 8px #22c55e20;
+  --glow-md: 0 0 16px #22c55e28, 0 0 4px #22c55e18;
+  --glow-lg: 0 0 24px #22c55e30, 0 0 8px #22c55e20;
+  --glow-accent: 0 0 12px #22c55e35;
 }
 
 body {
@@ -25,4 +31,31 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.font-mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.tabular-nums {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.glow-border {
+  border: 1px solid var(--color-border);
+  box-shadow: var(--glow-sm);
+}
+
+.glow-border-accent {
+  border: 1px solid var(--color-accent-muted);
+  box-shadow: var(--glow-md);
+}
+
+input:focus,
+button:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-accent-muted),
+    var(--glow-accent);
 }

@@ -24,11 +24,15 @@ export default function Login() {
     >
       <div
         className="w-full max-w-sm rounded-lg p-8"
-        style={{ backgroundColor: "var(--color-surface)" }}
+        style={{
+          backgroundColor: "var(--color-surface)",
+          border: "1px solid var(--color-accent-muted)",
+          boxShadow: "var(--glow-lg)",
+        }}
       >
         <h1
-          className="mb-8 text-center text-2xl font-semibold"
-          style={{ color: "var(--color-text-primary)" }}
+          className="mb-8 text-center text-2xl font-semibold tracking-wide"
+          style={{ color: "var(--color-accent)", textShadow: "0 0 24px var(--color-accent-muted)" }}
         >
           Pennywise
         </h1>
@@ -47,7 +51,7 @@ export default function Login() {
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              className="w-full rounded-md border px-3 py-2 text-sm transition-shadow"
               style={{
                 backgroundColor: "var(--color-background)",
                 borderColor: "var(--color-border)",
@@ -70,7 +74,7 @@ export default function Login() {
               required
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              className="w-full rounded-md border px-3 py-2 text-sm transition-shadow"
               style={{
                 backgroundColor: "var(--color-background)",
                 borderColor: "var(--color-border)",
@@ -87,8 +91,12 @@ export default function Login() {
           <button
             type="submit"
             disabled={loginMutation.isPending}
-            className="w-full rounded-md px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-accent)" }}
+            className="w-full rounded-md px-4 py-2 text-sm font-medium transition-all disabled:opacity-50"
+            style={{
+              backgroundColor: "var(--color-accent)",
+              color: "var(--color-background)",
+              boxShadow: "var(--glow-accent)",
+            }}
           >
             {loginMutation.isPending ? "Signing in..." : "Sign in"}
           </button>
