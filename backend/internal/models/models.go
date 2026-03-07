@@ -95,6 +95,34 @@ type Goal struct {
 	DeletedAt       *time.Time
 }
 
+type RecurringTransaction struct {
+	ID             string
+	UserID         string
+	AccountID      string
+	Type           string
+	Category       string
+	Amount         float64
+	Currency       string
+	Frequency      string
+	NextOccurrence time.Time
+	IsActive       bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	DeletedAt      *time.Time
+}
+
+type Alert struct {
+	ID                string
+	UserID            string
+	AlertType         string
+	Message           string
+	Severity          string
+	IsRead            bool
+	RelatedEntityType *string
+	RelatedEntityID   *string
+	CreatedAt         time.Time
+}
+
 type FailedRequest struct {
 	ID             string
 	RequestID      *string
