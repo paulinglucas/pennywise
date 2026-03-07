@@ -55,9 +55,12 @@ func setupRouter(t *testing.T) (*sql.DB, http.Handler) {
 	txnRepo := queries.NewTransactionRepository(database)
 	assetRepo := queries.NewAssetRepository(database)
 	goalRepo := queries.NewGoalRepository(database)
+	recurringRepo := queries.NewRecurringRepository(database)
+	alertRepo := queries.NewAlertRepository(database)
+	dashboardRepo := queries.NewDashboardRepository(database)
 	auditRepo := queries.NewAuditLogRepository(database)
 	dlqWriter := dlq.NewFailedRequestWriter(database)
-	handler := api.NewAppHandler(userRepo, accountRepo, txnRepo, assetRepo, goalRepo, auditRepo, dlqWriter, testSecret)
+	handler := api.NewAppHandler(userRepo, accountRepo, txnRepo, assetRepo, goalRepo, recurringRepo, alertRepo, dashboardRepo, auditRepo, dlqWriter, testSecret)
 
 	validator, err := middleware.Validation(api.OpenAPISpec, "/api/v1")
 	require.NoError(t, err)
