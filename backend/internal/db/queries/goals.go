@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jamespsullivan/pennywise/internal/models"
+	"github.com/jamespsullivan/pennywise/internal/observability"
 )
 
 type SQLiteGoalRepository struct {
@@ -18,6 +19,9 @@ func NewGoalRepository(db *sql.DB) *SQLiteGoalRepository {
 }
 
 func (r *SQLiteGoalRepository) List(ctx context.Context, userID string, page, perPage int) ([]models.Goal, int, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("list_goals", time.Since(start)) }()
+
 	var total int
 	err := r.db.QueryRowContext(ctx,
 		"SELECT COUNT(*) FROM goals WHERE user_id = ? AND deleted_at IS NULL",
@@ -51,6 +55,9 @@ func (r *SQLiteGoalRepository) List(ctx context.Context, userID string, page, pe
 }
 
 func (r *SQLiteGoalRepository) Create(ctx context.Context, goal *models.Goal) error {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("create_goal", time.Since(start)) }()
+
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, deadline, linked_account_id, priority_rank)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -61,6 +68,9 @@ func (r *SQLiteGoalRepository) Create(ctx context.Context, goal *models.Goal) er
 }
 
 func (r *SQLiteGoalRepository) GetByID(ctx context.Context, userID, id string) (*models.Goal, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("get_goal", time.Since(start)) }()
+
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, user_id, name, goal_type, target_amount, current_amount, deadline, linked_account_id, priority_rank, created_at, updated_at
 		 FROM goals WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
@@ -78,6 +88,9 @@ func (r *SQLiteGoalRepository) GetByID(ctx context.Context, userID, id string) (
 }
 
 func (r *SQLiteGoalRepository) Update(ctx context.Context, goal *models.Goal) (bool, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("update_goal", time.Since(start)) }()
+
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE goals SET name=?, goal_type=?, target_amount=?, current_amount=?, deadline=?, linked_account_id=?, priority_rank=?, updated_at=datetime('now')
 		 WHERE id=? AND user_id=? AND deleted_at IS NULL`,
@@ -96,6 +109,9 @@ func (r *SQLiteGoalRepository) Update(ctx context.Context, goal *models.Goal) (b
 }
 
 func (r *SQLiteGoalRepository) SoftDelete(ctx context.Context, userID, id string) (bool, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("delete_goal", time.Since(start)) }()
+
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE goals SET deleted_at=datetime('now'), updated_at=datetime('now')
 		 WHERE id=? AND user_id=? AND deleted_at IS NULL`,
@@ -112,6 +128,9 @@ func (r *SQLiteGoalRepository) SoftDelete(ctx context.Context, userID, id string
 }
 
 func (r *SQLiteGoalRepository) Reorder(ctx context.Context, userID string, rankings []GoalRanking) error {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("reorder_goals", time.Since(start)) }()
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -140,6 +159,9 @@ func (r *SQLiteGoalRepository) Reorder(ctx context.Context, userID string, ranki
 }
 
 func (r *SQLiteGoalRepository) NextPriorityRank(ctx context.Context, userID string) (int, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("next_priority_rank", time.Since(start)) }()
+
 	var maxRank sql.NullInt64
 	err := r.db.QueryRowContext(ctx,
 		"SELECT MAX(priority_rank) FROM goals WHERE user_id = ? AND deleted_at IS NULL",

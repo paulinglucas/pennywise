@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/jamespsullivan/pennywise/internal/models"
+	"github.com/jamespsullivan/pennywise/internal/observability"
 )
 
 type TransactionFilter struct {
@@ -33,6 +34,9 @@ func NewTransactionRepository(db *sql.DB) *SQLiteTransactionRepository {
 }
 
 func (r *SQLiteTransactionRepository) Create(ctx context.Context, txn *models.Transaction, tags []string) error {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("create_transaction", time.Since(start)) }()
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -57,6 +61,9 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, txn *models.Tr
 }
 
 func (r *SQLiteTransactionRepository) GetByID(ctx context.Context, userID, id string) (*models.Transaction, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("get_transaction", time.Since(start)) }()
+
 	var txn models.Transaction
 	var dateStr string
 	err := r.db.QueryRowContext(ctx,
@@ -88,6 +95,9 @@ func (r *SQLiteTransactionRepository) GetByID(ctx context.Context, userID, id st
 }
 
 func (r *SQLiteTransactionRepository) List(ctx context.Context, userID string, filter TransactionFilter, page, perPage int) ([]models.Transaction, int, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("list_transactions", time.Since(start)) }()
+
 	where, args := buildFilterWhere(userID, filter)
 
 	var total int
@@ -164,6 +174,9 @@ func (r *SQLiteTransactionRepository) List(ctx context.Context, userID string, f
 }
 
 func (r *SQLiteTransactionRepository) Update(ctx context.Context, txn *models.Transaction, tags []string) (bool, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("update_transaction", time.Since(start)) }()
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return false, err
@@ -201,6 +214,9 @@ func (r *SQLiteTransactionRepository) Update(ctx context.Context, txn *models.Tr
 }
 
 func (r *SQLiteTransactionRepository) SoftDelete(ctx context.Context, userID, id string) (bool, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("delete_transaction", time.Since(start)) }()
+
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE transactions SET deleted_at=datetime('now'), updated_at=datetime('now')
 		 WHERE id=? AND user_id=? AND deleted_at IS NULL`,
@@ -222,6 +238,9 @@ type BulkCreateError struct {
 }
 
 func (r *SQLiteTransactionRepository) BulkCreate(ctx context.Context, txns []models.Transaction) (int, []BulkCreateError) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("bulk_create_transactions", time.Since(start)) }()
+
 	var imported int
 	var errs []BulkCreateError
 

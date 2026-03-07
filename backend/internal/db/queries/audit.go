@@ -3,10 +3,12 @@ package queries
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/jamespsullivan/pennywise/internal/models"
+	"github.com/jamespsullivan/pennywise/internal/observability"
 )
 
 type SQLiteAuditLogRepository struct {
@@ -18,6 +20,9 @@ func NewAuditLogRepository(db *sql.DB) *SQLiteAuditLogRepository {
 }
 
 func (r *SQLiteAuditLogRepository) Record(ctx context.Context, entry *models.AuditLog) error {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("record_audit_log", time.Since(start)) }()
+
 	if entry.ID == "" {
 		entry.ID = uuid.New().String()
 	}

@@ -35,6 +35,8 @@ export default [
         AbortController: "readonly",
         navigator: "readonly",
         localStorage: "readonly",
+        RequestInit: "readonly",
+        React: "readonly",
       },
     },
     plugins: {
