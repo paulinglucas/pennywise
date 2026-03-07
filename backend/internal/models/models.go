@@ -59,6 +59,27 @@ type AuditLog struct {
 	CreatedAt    time.Time
 }
 
+type Asset struct {
+	ID           string
+	UserID       string
+	AccountID    *string
+	Name         string
+	AssetType    string
+	CurrentValue float64
+	Currency     string
+	Metadata     *string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    *time.Time
+}
+
+type AssetHistory struct {
+	ID         string
+	AssetID    string
+	Value      float64
+	RecordedAt time.Time
+}
+
 type FailedRequest struct {
 	ID             string
 	RequestID      *string
