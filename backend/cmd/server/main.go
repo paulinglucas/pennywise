@@ -100,9 +100,10 @@ func buildRouter(logger *slog.Logger, database *sql.DB) http.Handler {
 	userRepo := queries.NewUserRepository(database)
 	accountRepo := queries.NewAccountRepository(database)
 	txnRepo := queries.NewTransactionRepository(database)
+	assetRepo := queries.NewAssetRepository(database)
 	auditRepo := queries.NewAuditLogRepository(database)
 	dlqWriter := dlq.NewFailedRequestWriter(database)
-	handler := api.NewAppHandler(userRepo, accountRepo, txnRepo, auditRepo, dlqWriter, secret)
+	handler := api.NewAppHandler(userRepo, accountRepo, txnRepo, assetRepo, auditRepo, dlqWriter, secret)
 
 	validator, err := middleware.Validation(api.OpenAPISpec, "/api/v1")
 	if err != nil {

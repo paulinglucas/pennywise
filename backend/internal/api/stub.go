@@ -12,34 +12,6 @@ func (s *StubHandler) MarkAlertRead(w http.ResponseWriter, r *http.Request, id I
 	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
 }
 
-func (s *StubHandler) ListAssets(w http.ResponseWriter, r *http.Request, params ListAssetsParams) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) CreateAsset(w http.ResponseWriter, r *http.Request) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) GetAssetAllocation(w http.ResponseWriter, r *http.Request, params GetAssetAllocationParams) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) DeleteAsset(w http.ResponseWriter, r *http.Request, id IdParam) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) GetAsset(w http.ResponseWriter, r *http.Request, id IdParam) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) UpdateAsset(w http.ResponseWriter, r *http.Request, id IdParam) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
-func (s *StubHandler) GetAssetHistory(w http.ResponseWriter, r *http.Request, id IdParam, params GetAssetHistoryParams) {
-	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
-}
-
 func (s *StubHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 	WriteError(w, http.StatusNotImplemented, INTERNALERROR, "Not implemented", "")
 }
