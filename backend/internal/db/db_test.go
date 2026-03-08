@@ -99,7 +99,7 @@ func TestMigrate(t *testing.T) {
 		var count int
 		err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM schema_migrations").Scan(&count)
 		require.NoError(t, err)
-		assert.Equal(t, 9, count)
+		assert.Equal(t, 10, count)
 	})
 
 	t.Run("records applied migrations", func(t *testing.T) {
@@ -129,6 +129,7 @@ func TestMigrate(t *testing.T) {
 			"007_create_alerts.sql",
 			"008_create_audit_log.sql",
 			"009_create_failed_requests.sql",
+			"010_add_original_balance_to_accounts.sql",
 		}, names)
 	})
 
@@ -182,6 +183,7 @@ func TestMigrate(t *testing.T) {
 		assert.ElementsMatch(t, []string{
 			"id", "user_id", "name", "institution", "account_type",
 			"currency", "is_active", "created_at", "updated_at", "deleted_at",
+			"original_balance",
 		}, columns)
 	})
 

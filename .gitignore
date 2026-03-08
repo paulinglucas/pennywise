@@ -40,6 +40,7 @@ scripts/test-phase*.sh
 
 # What he's gotta feed on
 .claude/
+screenshots/
 CLAUDE.md
 BUILD_PLAN.md
 PENNYWISE_CONTEXT.md

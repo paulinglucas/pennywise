@@ -659,6 +659,13 @@ paths:
       operationId: getDashboard
       tags: [dashboard]
       summary: Aggregated dashboard data
+      parameters:
+        - name: spending_period
+          in: query
+          schema:
+            type: string
+            enum: [7d, 30d, 90d, 1y]
+            default: 30d
       responses:
         "200":
           description: Dashboard data
@@ -960,6 +967,7 @@ components:
       enum:
         - expense
         - deposit
+        - transfer
 
     AccountType:
       type: string
@@ -1746,6 +1754,8 @@ components:
               balance:
                 type: number
               monthly_payment:
+                type: number
+              original_balance:
                 type: number
               payoff_date:
                 type: string

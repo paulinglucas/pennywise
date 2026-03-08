@@ -20,6 +20,7 @@ func NewDashboardRepository(db *sql.DB) *DashboardRepository {
 
 type NetWorthResult struct {
 	AssetTotal float64
+	CashTotal  float64
 	DebtTotal  float64
 }
 
@@ -29,10 +30,11 @@ type SpendingRow struct {
 }
 
 type DebtRow struct {
-	AccountID      string
-	Name           string
-	Balance        float64
-	MonthlyPayment float64
+	AccountID       string
+	Name            string
+	Balance         float64
+	MonthlyPayment  float64
+	OriginalBalance *float64
 }
 
 type NetWorthDataPoint struct {
@@ -51,6 +53,23 @@ func (r *DashboardRepository) GetNetWorth(ctx context.Context, userID string) (N
 		 FROM assets WHERE user_id = ? AND deleted_at IS NULL`,
 		userID,
 	).Scan(&result.AssetTotal)
+	if err != nil {
+		return result, err
+	}
+
+	err = r.db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(balance), 0) FROM (
+		   SELECT
+		     COALESCE(SUM(CASE WHEN t.type = 'deposit' THEN t.amount ELSE 0 END), 0) -
+		     COALESCE(SUM(CASE WHEN t.type IN ('expense', 'transfer') THEN t.amount ELSE 0 END), 0) as balance
+		   FROM accounts a
+		   LEFT JOIN transactions t ON t.account_id = a.id AND t.deleted_at IS NULL
+		   WHERE a.user_id = ? AND a.deleted_at IS NULL
+		     AND a.account_type IN ('checking', 'savings', 'other')
+		   GROUP BY a.id
+		 )`,
+		userID,
+	).Scan(&result.CashTotal)
 	if err != nil {
 		return result, err
 	}
@@ -91,12 +110,9 @@ func (r *DashboardRepository) GetCashFlowThisMonth(ctx context.Context, userID s
 	return deposits - expenses, nil
 }
 
-func (r *DashboardRepository) GetSpendingByCategory(ctx context.Context, userID string, now time.Time) ([]SpendingRow, error) {
+func (r *DashboardRepository) GetSpendingByCategory(ctx context.Context, userID string, since time.Time, until time.Time) ([]SpendingRow, error) {
 	start := time.Now()
 	defer func() { observability.RecordDBQuery("get_spending_by_category", time.Since(start)) }()
-
-	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-	monthEnd := monthStart.AddDate(0, 1, 0)
 
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT category, SUM(amount) as total
@@ -105,7 +121,7 @@ func (r *DashboardRepository) GetSpendingByCategory(ctx context.Context, userID 
 		   AND date >= ? AND date < ?
 		 GROUP BY category
 		 ORDER BY total DESC`,
-		userID, monthStart.Format("2006-01-02"), monthEnd.Format("2006-01-02"),
+		userID, since.Format("2006-01-02"), until.Format("2006-01-02"),
 	)
 	if err != nil {
 		return nil, err
@@ -138,7 +154,8 @@ func (r *DashboardRepository) GetDebtsSummary(ctx context.Context, userID string
 		            WHERE t.user_id = a.user_id AND t.account_id = a.id
 		              AND t.type = 'expense' AND t.deleted_at IS NULL
 		              AND t.date >= ? AND t.date < ?
-		        ), 0) as monthly_payment
+		        ), 0) as monthly_payment,
+		        a.original_balance
 		 FROM accounts a
 		 LEFT JOIN goals g ON g.linked_account_id = a.id AND g.goal_type = 'debt_payoff' AND g.deleted_at IS NULL
 		 WHERE a.user_id = ? AND a.deleted_at IS NULL
@@ -154,7 +171,7 @@ func (r *DashboardRepository) GetDebtsSummary(ctx context.Context, userID string
 	var result []DebtRow
 	for rows.Next() {
 		var row DebtRow
-		if err := rows.Scan(&row.AccountID, &row.Name, &row.Balance, &row.MonthlyPayment); err != nil {
+		if err := rows.Scan(&row.AccountID, &row.Name, &row.Balance, &row.MonthlyPayment, &row.OriginalBalance); err != nil {
 			return nil, err
 		}
 		result = append(result, row)
@@ -162,19 +179,86 @@ func (r *DashboardRepository) GetDebtsSummary(ctx context.Context, userID string
 	return result, rows.Err()
 }
 
-func (r *DashboardRepository) GetNetWorthHistory(ctx context.Context, userID string, since time.Time) ([]NetWorthDataPoint, error) {
+func (r *DashboardRepository) GetNetWorthHistory(ctx context.Context, userID string, since time.Time, includeSinceDate bool) ([]NetWorthDataPoint, error) {
 	start := time.Now()
 	defer func() { observability.RecordDBQuery("get_net_worth_history", time.Since(start)) }()
 
+	points, err := r.getHistoricalPoints(ctx, userID, since, includeSinceDate)
+	if err != nil {
+		return nil, err
+	}
+
+	todayPoint, err := r.getCurrentNetWorthPoint(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return appendTodayPoint(points, todayPoint), nil
+}
+
+func (r *DashboardRepository) getHistoricalPoints(ctx context.Context, userID string, since time.Time, includeSinceDate bool) ([]NetWorthDataPoint, error) {
+	sinceStr := since.Format("2006-01-02")
+	includeSince := 0
+	if includeSinceDate {
+		includeSince = 1
+	}
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT DATE(ah.recorded_at) as snap_date, SUM(ah.value) as total_value
-		 FROM asset_history ah
-		 JOIN assets a ON a.id = ah.asset_id
-		 WHERE a.user_id = ? AND a.deleted_at IS NULL
-		   AND ah.recorded_at >= ?
-		 GROUP BY snap_date
-		 ORDER BY snap_date ASC`,
-		userID, since.Format("2006-01-02"),
+		`WITH asset_snap_dates AS (
+		   SELECT DISTINCT DATE(ah.recorded_at) as snap_date
+		   FROM asset_history ah
+		   JOIN assets a ON a.id = ah.asset_id
+		   WHERE a.user_id = ? AND a.deleted_at IS NULL
+		     AND ah.recorded_at >= ?
+		 ),
+		 txn_dates AS (
+		   SELECT DISTINCT DATE(t.date) as snap_date
+		   FROM transactions t
+		   JOIN accounts ac ON ac.id = t.account_id
+		   WHERE ac.user_id = ? AND ac.deleted_at IS NULL AND t.deleted_at IS NULL
+		     AND ac.account_type IN ('checking', 'savings', 'other')
+		     AND t.date >= ?
+		 ),
+		 since_date AS (
+		   SELECT ? as snap_date WHERE ? = 1
+		 ),
+		 all_dates AS (
+		   SELECT snap_date FROM since_date
+		   UNION
+		   SELECT snap_date FROM asset_snap_dates
+		   UNION
+		   SELECT snap_date FROM txn_dates
+		 )
+		 SELECT
+		   ad.snap_date,
+		   COALESCE((
+		     SELECT SUM(latest_val) FROM (
+		       SELECT (
+		         SELECT ah.value FROM asset_history ah
+		         WHERE ah.asset_id = a.id AND DATE(ah.recorded_at) <= ad.snap_date
+		         ORDER BY ah.recorded_at DESC LIMIT 1
+		       ) as latest_val
+		       FROM assets a
+		       WHERE a.user_id = ? AND a.deleted_at IS NULL
+		     )
+		   ), 0)
+		     + COALESCE((
+		         SELECT SUM(CASE WHEN t.type = 'deposit' THEN t.amount ELSE 0 END)
+		              - SUM(CASE WHEN t.type IN ('expense', 'transfer') THEN t.amount ELSE 0 END)
+		         FROM transactions t
+		         JOIN accounts ac ON ac.id = t.account_id
+		         WHERE ac.user_id = ? AND ac.deleted_at IS NULL AND t.deleted_at IS NULL
+		           AND ac.account_type IN ('checking', 'savings', 'other')
+		           AND t.date <= ad.snap_date
+		       ), 0)
+		     - COALESCE((
+		         SELECT SUM(g.current_amount) FROM goals g
+		         WHERE g.user_id = ? AND g.goal_type = 'debt_payoff' AND g.deleted_at IS NULL
+		           AND DATE(g.created_at) <= ad.snap_date
+		       ), 0)
+		   as net_worth
+		 FROM all_dates ad
+		 ORDER BY ad.snap_date ASC`,
+		userID, sinceStr, userID, sinceStr, sinceStr, includeSince, userID, userID, userID,
 	)
 	if err != nil {
 		return nil, err
@@ -198,6 +282,31 @@ func (r *DashboardRepository) GetNetWorthHistory(ctx context.Context, userID str
 		})
 	}
 	return result, rows.Err()
+}
+
+func (r *DashboardRepository) getCurrentNetWorthPoint(ctx context.Context, userID string) (NetWorthDataPoint, error) {
+	nw, err := r.GetNetWorth(ctx, userID)
+	if err != nil {
+		return NetWorthDataPoint{}, err
+	}
+
+	today := time.Now()
+	return NetWorthDataPoint{
+		Date:  openapi_types.Date{Time: time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC)},
+		Value: nw.AssetTotal + nw.CashTotal - nw.DebtTotal,
+	}, nil
+}
+
+func appendTodayPoint(points []NetWorthDataPoint, today NetWorthDataPoint) []NetWorthDataPoint {
+	todayStr := today.Date.Format("2006-01-02")
+	if len(points) > 0 {
+		lastDate := points[len(points)-1].Date.Format("2006-01-02")
+		if lastDate == todayStr {
+			points[len(points)-1].Value = today.Value
+			return points
+		}
+	}
+	return append(points, today)
 }
 
 func (r *DashboardRepository) PingDB(ctx context.Context) error {

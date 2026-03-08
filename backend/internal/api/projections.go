@@ -38,7 +38,7 @@ func (h *AppHandler) ComputeProjection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentNetWorth := nwResult.AssetTotal - nwResult.DebtTotal
+	currentNetWorth := nwResult.AssetTotal + nwResult.CashTotal - nwResult.DebtTotal
 
 	monthlySavings := h.estimateMonthlySavings(r, userID, req)
 

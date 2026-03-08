@@ -308,8 +308,9 @@ func (e Scenario) Valid() bool {
 
 // Defines values for TransactionType.
 const (
-	TransactionTypeDeposit TransactionType = "deposit"
-	TransactionTypeExpense TransactionType = "expense"
+	TransactionTypeDeposit  TransactionType = "deposit"
+	TransactionTypeExpense  TransactionType = "expense"
+	TransactionTypeTransfer TransactionType = "transfer"
 )
 
 // Valid indicates whether the value is a known member of the TransactionType enum.
@@ -318,6 +319,8 @@ func (e TransactionType) Valid() bool {
 	case TransactionTypeDeposit:
 		return true
 	case TransactionTypeExpense:
+		return true
+	case TransactionTypeTransfer:
 		return true
 	default:
 		return false
@@ -378,24 +381,48 @@ func (e GetAssetHistoryParamsPeriod) Valid() bool {
 	}
 }
 
+// Defines values for GetDashboardParamsSpendingPeriod.
+const (
+	GetDashboardParamsSpendingPeriodN1y  GetDashboardParamsSpendingPeriod = "1y"
+	GetDashboardParamsSpendingPeriodN30d GetDashboardParamsSpendingPeriod = "30d"
+	GetDashboardParamsSpendingPeriodN7d  GetDashboardParamsSpendingPeriod = "7d"
+	GetDashboardParamsSpendingPeriodN90d GetDashboardParamsSpendingPeriod = "90d"
+)
+
+// Valid indicates whether the value is a known member of the GetDashboardParamsSpendingPeriod enum.
+func (e GetDashboardParamsSpendingPeriod) Valid() bool {
+	switch e {
+	case GetDashboardParamsSpendingPeriodN1y:
+		return true
+	case GetDashboardParamsSpendingPeriodN30d:
+		return true
+	case GetDashboardParamsSpendingPeriodN7d:
+		return true
+	case GetDashboardParamsSpendingPeriodN90d:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetNetWorthHistoryParamsPeriod.
 const (
-	All GetNetWorthHistoryParamsPeriod = "all"
-	N1m GetNetWorthHistoryParamsPeriod = "1m"
-	N1y GetNetWorthHistoryParamsPeriod = "1y"
-	N5y GetNetWorthHistoryParamsPeriod = "5y"
+	GetNetWorthHistoryParamsPeriodAll GetNetWorthHistoryParamsPeriod = "all"
+	GetNetWorthHistoryParamsPeriodN1m GetNetWorthHistoryParamsPeriod = "1m"
+	GetNetWorthHistoryParamsPeriodN1y GetNetWorthHistoryParamsPeriod = "1y"
+	GetNetWorthHistoryParamsPeriodN5y GetNetWorthHistoryParamsPeriod = "5y"
 )
 
 // Valid indicates whether the value is a known member of the GetNetWorthHistoryParamsPeriod enum.
 func (e GetNetWorthHistoryParamsPeriod) Valid() bool {
 	switch e {
-	case All:
+	case GetNetWorthHistoryParamsPeriodAll:
 		return true
-	case N1m:
+	case GetNetWorthHistoryParamsPeriodN1m:
 		return true
-	case N1y:
+	case GetNetWorthHistoryParamsPeriodN1y:
 		return true
-	case N5y:
+	case GetNetWorthHistoryParamsPeriodN5y:
 		return true
 	default:
 		return false
@@ -565,6 +592,7 @@ type DashboardResponse struct {
 		MonthlyPayment  float32             `json:"monthly_payment"`
 		MonthsRemaining *int                `json:"months_remaining,omitempty"`
 		Name            string              `json:"name"`
+		OriginalBalance *float32            `json:"original_balance,omitempty"`
 		PayoffDate      *openapi_types.Date `json:"payoff_date,omitempty"`
 	} `json:"debts_summary"`
 	NetWorth           float32 `json:"net_worth"`
@@ -898,6 +926,14 @@ type GetAssetHistoryParams struct {
 // GetAssetHistoryParamsPeriod defines parameters for GetAssetHistory.
 type GetAssetHistoryParamsPeriod string
 
+// GetDashboardParams defines parameters for GetDashboard.
+type GetDashboardParams struct {
+	SpendingPeriod *GetDashboardParamsSpendingPeriod `form:"spending_period,omitempty" json:"spending_period,omitempty"`
+}
+
+// GetDashboardParamsSpendingPeriod defines parameters for GetDashboard.
+type GetDashboardParamsSpendingPeriod string
+
 // GetNetWorthHistoryParams defines parameters for GetNetWorthHistory.
 type GetNetWorthHistoryParams struct {
 	Period *GetNetWorthHistoryParamsPeriod `form:"period,omitempty" json:"period,omitempty"`
@@ -1041,7 +1077,7 @@ type ServerInterface interface {
 	GetAuthMe(w http.ResponseWriter, r *http.Request)
 	// Aggregated dashboard data
 	// (GET /dashboard)
-	GetDashboard(w http.ResponseWriter, r *http.Request)
+	GetDashboard(w http.ResponseWriter, r *http.Request, params GetDashboardParams)
 	// Net worth time series
 	// (GET /dashboard/net-worth-history)
 	GetNetWorthHistory(w http.ResponseWriter, r *http.Request, params GetNetWorthHistoryParams)
@@ -1218,7 +1254,7 @@ func (_ Unimplemented) GetAuthMe(w http.ResponseWriter, r *http.Request) {
 
 // Aggregated dashboard data
 // (GET /dashboard)
-func (_ Unimplemented) GetDashboard(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) GetDashboard(w http.ResponseWriter, r *http.Request, params GetDashboardParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1875,14 +1911,27 @@ func (siw *ServerInterfaceWrapper) GetAuthMe(w http.ResponseWriter, r *http.Requ
 // GetDashboard operation middleware
 func (siw *ServerInterfaceWrapper) GetDashboard(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
 
 	r = r.WithContext(ctx)
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetDashboardParams
+
+	// ------------- Optional query parameter "spending_period" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "spending_period", r.URL.Query(), &params.SpendingPeriod, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "spending_period", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetDashboard(w, r)
+		siw.Handler.GetDashboard(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {

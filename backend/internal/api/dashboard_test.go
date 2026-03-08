@@ -27,7 +27,7 @@ func setupDashboardData(t *testing.T, router http.Handler, cookie *http.Cookie) 
 		{"deposit", "salary", 5000, "2026-03-01"},
 		{"expense", "food", 300, "2026-03-05"},
 		{"expense", "housing", 1500, "2026-03-01"},
-		{"expense", "utilities", 200, "2026-03-10"},
+		{"expense", "utilities", 200, "2026-03-03"},
 	}
 
 	for i, txn := range txns {
@@ -80,7 +80,7 @@ func TestGetDashboard_WithData(t *testing.T) {
 
 	var resp api.DashboardResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-	assert.Equal(t, float32(50000), resp.NetWorth)
+	assert.Equal(t, float32(53000), resp.NetWorth)
 	assert.Equal(t, float32(3000), resp.CashFlowThisMonth)
 	assert.Len(t, resp.SpendingByCategory, 3)
 }
@@ -150,6 +150,52 @@ func TestGetDashboard_DebtsSummary(t *testing.T) {
 	assert.Equal(t, float32(3000), resp.DebtsSummary[0].Balance)
 }
 
+func TestGetDashboard_SpendingPeriod(t *testing.T) {
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	setupDashboardData(t, router, cookie)
+
+	req := authedRequest(http.MethodGet, "/api/v1/dashboard?spending_period=1y", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.DashboardResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Len(t, resp.SpendingByCategory, 3)
+}
+
+func TestGetDashboard_DebtsOriginalBalance(t *testing.T) {
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"cc000002-0000-0000-0000-000000000001", testUserID, "Visa Card", "Visa", "credit_card", "USD", 10000.0,
+	)
+	require.NoError(t, err)
+
+	_, err = database.ExecContext(context.Background(),
+		`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, linked_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"gl000002-0000-0000-0000-000000000001", testUserID, "Pay off Visa", "debt_payoff", 10000, 4000, 1, "cc000002-0000-0000-0000-000000000001",
+	)
+	require.NoError(t, err)
+
+	req := authedRequest(http.MethodGet, "/api/v1/dashboard", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.DashboardResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Len(t, resp.DebtsSummary, 1)
+	require.NotNil(t, resp.DebtsSummary[0].OriginalBalance)
+	assert.Equal(t, float32(10000), *resp.DebtsSummary[0].OriginalBalance)
+}
+
 func TestGetNetWorthHistory_Empty(t *testing.T) {
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
@@ -162,7 +208,9 @@ func TestGetNetWorthHistory_Empty(t *testing.T) {
 
 	var resp api.NetWorthHistoryResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-	assert.Empty(t, resp.DataPoints)
+	require.Len(t, resp.DataPoints, 2)
+	assert.Equal(t, float32(0), resp.DataPoints[0].Value)
+	assert.Equal(t, float32(0), resp.DataPoints[1].Value)
 }
 
 func TestGetNetWorthHistory_WithPeriod(t *testing.T) {

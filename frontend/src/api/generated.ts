@@ -511,7 +511,7 @@ export interface components {
             name: string;
         };
         /** @enum {string} */
-        TransactionType: "expense" | "deposit";
+        TransactionType: "expense" | "deposit" | "transfer";
         /** @enum {string} */
         AccountType: "checking" | "savings" | "hysa" | "credit_card" | "mortgage" | "brokerage" | "retirement_401k" | "retirement_ira" | "retirement_roth_ira" | "rollover_ira" | "hsa" | "crypto_wallet" | "safe_agreement" | "credit_line" | "venmo" | "other";
         /** @enum {string} */
@@ -812,6 +812,7 @@ export interface components {
                 name: string;
                 balance: number;
                 monthly_payment: number;
+                original_balance?: number;
                 /** Format: date */
                 payoff_date?: string;
                 months_remaining?: number;
@@ -1722,7 +1723,9 @@ export interface operations {
     };
     getDashboard: {
         parameters: {
-            query?: never;
+            query?: {
+                spending_period?: "7d" | "30d" | "90d" | "1y";
+            };
             header?: never;
             path?: never;
             cookie?: never;
