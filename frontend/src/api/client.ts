@@ -77,3 +77,27 @@ export function getMe(): Promise<MeResult> {
 export function logout(): Promise<void> {
   return request<void>("/api/v1/auth/logout", { method: "POST" });
 }
+
+export type DashboardResponse = Schemas["DashboardResponse"];
+type DashboardResult =
+  paths["/dashboard"]["get"]["responses"]["200"]["content"]["application/json"];
+
+export type SpendingPeriod = NonNullable<
+  paths["/dashboard"]["get"]["parameters"]["query"]
+>["spending_period"];
+
+export function getDashboard(spendingPeriod?: SpendingPeriod): Promise<DashboardResult> {
+  const params = spendingPeriod ? `?spending_period=${spendingPeriod}` : "";
+  return request<DashboardResult>(`/api/v1/dashboard${params}`);
+}
+
+export type NetWorthHistoryResponse = Schemas["NetWorthHistoryResponse"];
+type NetWorthHistoryResult =
+  paths["/dashboard/net-worth-history"]["get"]["responses"]["200"]["content"]["application/json"];
+type NetWorthPeriod = NonNullable<
+  paths["/dashboard/net-worth-history"]["get"]["parameters"]["query"]
+>["period"];
+
+export function getNetWorthHistory(period: NetWorthPeriod = "1y"): Promise<NetWorthHistoryResult> {
+  return request<NetWorthHistoryResult>(`/api/v1/dashboard/net-worth-history?period=${period}`);
+}

@@ -37,6 +37,7 @@ export default [
         localStorage: "readonly",
         RequestInit: "readonly",
         React: "readonly",
+        ResizeObserver: "readonly",
       },
     },
     plugins: {
@@ -56,7 +57,7 @@ export default [
     },
   },
   {
-    files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
+    files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}", "**/test-setup.ts"],
     languageOptions: {
       globals: {
         describe: "readonly",

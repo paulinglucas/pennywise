@@ -15,13 +15,13 @@ import (
 type DashboardRepository interface {
 	GetNetWorth(ctx context.Context, userID string) (queries.NetWorthResult, error)
 	GetCashFlowThisMonth(ctx context.Context, userID string, now time.Time) (float64, error)
-	GetSpendingByCategory(ctx context.Context, userID string, now time.Time) ([]queries.SpendingRow, error)
+	GetSpendingByCategory(ctx context.Context, userID string, since time.Time, until time.Time) ([]queries.SpendingRow, error)
 	GetDebtsSummary(ctx context.Context, userID string, now time.Time) ([]queries.DebtRow, error)
-	GetNetWorthHistory(ctx context.Context, userID string, since time.Time) ([]queries.NetWorthDataPoint, error)
+	GetNetWorthHistory(ctx context.Context, userID string, since time.Time, includeSinceDate bool) ([]queries.NetWorthDataPoint, error)
 	PingDB(ctx context.Context) error
 }
 
-func (h *AppHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
+func (h *AppHandler) GetDashboard(w http.ResponseWriter, r *http.Request, params GetDashboardParams) {
 	userID := middleware.GetUserID(r.Context())
 	requestID := middleware.GetRequestID(r.Context())
 	now := time.Now()
@@ -38,7 +38,8 @@ func (h *AppHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spendingRows, err := h.dashboard.GetSpendingByCategory(r.Context(), userID, now)
+	since, until := spendingPeriodToRange(params.SpendingPeriod, now)
+	spendingRows, err := h.dashboard.GetSpendingByCategory(r.Context(), userID, since, until)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, INTERNALERROR, "Failed to get spending", requestID)
 		return
@@ -50,7 +51,7 @@ func (h *AppHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	netWorth := nwResult.AssetTotal - nwResult.DebtTotal
+	netWorth := nwResult.AssetTotal + nwResult.CashTotal - nwResult.DebtTotal
 	spending := buildSpendingResponse(spendingRows)
 	debts := buildDebtsResponse(debtRows)
 
@@ -60,6 +61,22 @@ func (h *AppHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 		SpendingByCategory: spending,
 		DebtsSummary:       debts,
 	})
+}
+
+func spendingPeriodToRange(period *GetDashboardParamsSpendingPeriod, now time.Time) (time.Time, time.Time) {
+	if period == nil {
+		return now.AddDate(0, 0, -30), now
+	}
+	switch *period {
+	case GetDashboardParamsSpendingPeriodN7d:
+		return now.AddDate(0, 0, -7), now
+	case GetDashboardParamsSpendingPeriodN90d:
+		return now.AddDate(0, 0, -90), now
+	case GetDashboardParamsSpendingPeriodN1y:
+		return now.AddDate(-1, 0, 0), now
+	default:
+		return now.AddDate(0, 0, -30), now
+	}
 }
 
 func buildSpendingResponse(rows []queries.SpendingRow) []struct {
@@ -102,6 +119,7 @@ func buildDebtsResponse(rows []queries.DebtRow) []struct {
 	MonthlyPayment  float32             `json:"monthly_payment"`
 	MonthsRemaining *int                `json:"months_remaining,omitempty"`
 	Name            string              `json:"name"`
+	OriginalBalance *float32            `json:"original_balance,omitempty"`
 	PayoffDate      *openapi_types.Date `json:"payoff_date,omitempty"`
 } {
 	result := make([]struct {
@@ -110,6 +128,7 @@ func buildDebtsResponse(rows []queries.DebtRow) []struct {
 		MonthlyPayment  float32             `json:"monthly_payment"`
 		MonthsRemaining *int                `json:"months_remaining,omitempty"`
 		Name            string              `json:"name"`
+		OriginalBalance *float32            `json:"original_balance,omitempty"`
 		PayoffDate      *openapi_types.Date `json:"payoff_date,omitempty"`
 	}, len(rows))
 
@@ -118,6 +137,11 @@ func buildDebtsResponse(rows []queries.DebtRow) []struct {
 		result[i].Balance = float32(row.Balance)
 		result[i].MonthlyPayment = float32(row.MonthlyPayment)
 		result[i].Name = row.Name
+
+		if row.OriginalBalance != nil {
+			ob := float32(*row.OriginalBalance)
+			result[i].OriginalBalance = &ob
+		}
 
 		if row.MonthlyPayment > 0 && row.Balance > 0 {
 			months := int(math.Ceil(row.Balance / row.MonthlyPayment))
@@ -133,9 +157,9 @@ func (h *AppHandler) GetNetWorthHistory(w http.ResponseWriter, r *http.Request, 
 	userID := middleware.GetUserID(r.Context())
 	requestID := middleware.GetRequestID(r.Context())
 
-	since := periodToSince(params.Period)
+	since, includeSinceDate := periodToSince(params.Period)
 
-	points, err := h.dashboard.GetNetWorthHistory(r.Context(), userID, since)
+	points, err := h.dashboard.GetNetWorthHistory(r.Context(), userID, since, includeSinceDate)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, INTERNALERROR, "Failed to get net worth history", requestID)
 		return
@@ -153,19 +177,19 @@ func (h *AppHandler) GetNetWorthHistory(w http.ResponseWriter, r *http.Request, 
 	WriteJSON(w, http.StatusOK, NetWorthHistoryResponse{DataPoints: dataPoints})
 }
 
-func periodToSince(period *GetNetWorthHistoryParamsPeriod) time.Time {
+func periodToSince(period *GetNetWorthHistoryParamsPeriod) (time.Time, bool) {
 	now := time.Now()
 	if period == nil {
-		return now.AddDate(-1, 0, 0)
+		return now.AddDate(-1, 0, 0), true
 	}
 	switch *period {
-	case N1m:
-		return now.AddDate(0, -1, 0)
-	case N5y:
-		return now.AddDate(-5, 0, 0)
-	case All:
-		return time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	case GetNetWorthHistoryParamsPeriodN1m:
+		return now.AddDate(0, -1, 0), true
+	case GetNetWorthHistoryParamsPeriodN5y:
+		return now.AddDate(-5, 0, 0), true
+	case GetNetWorthHistoryParamsPeriodAll:
+		return time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC), false
 	default:
-		return now.AddDate(-1, 0, 0)
+		return now.AddDate(-1, 0, 0), true
 	}
 }
