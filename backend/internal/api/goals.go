@@ -25,6 +25,13 @@ type GoalRepository interface {
 	NextPriorityRank(ctx context.Context, userID string) (int, error)
 }
 
+type GoalContributionRepository interface {
+	Create(ctx context.Context, contrib *models.GoalContribution) error
+	ListByGoal(ctx context.Context, userID, goalID string, page, perPage int) ([]models.GoalContribution, int, error)
+	GetByID(ctx context.Context, userID, id string) (*models.GoalContribution, error)
+	Delete(ctx context.Context, userID, id string) (bool, error)
+}
+
 func (h *AppHandler) ListGoals(w http.ResponseWriter, r *http.Request, params ListGoalsParams) {
 	userID := middleware.GetUserID(r.Context())
 	requestID := middleware.GetRequestID(r.Context())
@@ -179,22 +186,27 @@ func (h *AppHandler) ReorderGoals(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 	requestID := middleware.GetRequestID(r.Context())
 
-	var req GoalReorderRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var raw struct {
+		Rankings []struct {
+			ID           string `json:"id"`
+			PriorityRank int    `json:"priority_rank"`
+		} `json:"rankings"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
 		WriteError(w, http.StatusBadRequest, VALIDATIONFAILED, "Invalid request body", requestID)
 		return
 	}
 
-	if len(req.Rankings) == 0 {
+	if len(raw.Rankings) == 0 {
 		WriteError(w, http.StatusBadRequest, VALIDATIONFAILED, "rankings must not be empty", requestID)
 		return
 	}
 
-	rankings := make([]queries.GoalRanking, len(req.Rankings))
-	for i, r := range req.Rankings {
+	rankings := make([]queries.GoalRanking, len(raw.Rankings))
+	for i, ranking := range raw.Rankings {
 		rankings[i] = queries.GoalRanking{
-			ID:   r.Id.String(),
-			Rank: r.PriorityRank,
+			ID:   ranking.ID,
+			Rank: ranking.PriorityRank,
 		}
 	}
 

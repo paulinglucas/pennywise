@@ -105,6 +105,17 @@ type Goal struct {
 	DeletedAt       *time.Time
 }
 
+type GoalContribution struct {
+	ID            string
+	GoalID        string
+	UserID        string
+	Amount        float64
+	Notes         *string
+	TransactionID *string
+	ContributedAt time.Time
+	CreatedAt     time.Time
+}
+
 type RecurringTransaction struct {
 	ID             string
 	UserID         string

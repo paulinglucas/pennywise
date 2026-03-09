@@ -27,6 +27,7 @@ type AppHandler struct {
 	transactionGroups TransactionGroupRepository
 	assets            AssetRepository
 	goals             GoalRepository
+	goalContributions GoalContributionRepository
 	recurring         RecurringRepository
 	alerts            AlertRepository
 	dashboard         DashboardRepository
@@ -36,7 +37,7 @@ type AppHandler struct {
 	startTime         time.Time
 }
 
-func NewAppHandler(users UserRepository, accounts AccountRepository, transactions TransactionRepository, transactionGroups TransactionGroupRepository, assets AssetRepository, goals GoalRepository, recurring RecurringRepository, alerts AlertRepository, dashboard DashboardRepository, auditLog AuditLogWriter, dlq FailedRequestWriter, secret []byte) *AppHandler {
+func NewAppHandler(users UserRepository, accounts AccountRepository, transactions TransactionRepository, transactionGroups TransactionGroupRepository, assets AssetRepository, goals GoalRepository, goalContributions GoalContributionRepository, recurring RecurringRepository, alerts AlertRepository, dashboard DashboardRepository, auditLog AuditLogWriter, dlq FailedRequestWriter, secret []byte) *AppHandler {
 	return &AppHandler{
 		users:             users,
 		accounts:          accounts,
@@ -44,6 +45,7 @@ func NewAppHandler(users UserRepository, accounts AccountRepository, transaction
 		transactionGroups: transactionGroups,
 		assets:            assets,
 		goals:             goals,
+		goalContributions: goalContributions,
 		recurring:         recurring,
 		alerts:            alerts,
 		dashboard:         dashboard,
