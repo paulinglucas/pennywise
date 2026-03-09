@@ -20,6 +20,15 @@ export type CreateTransactionGroupRequest = Schemas["CreateTransactionGroupReque
 export type UpdateTransactionGroupRequest = Schemas["UpdateTransactionGroupRequest"];
 export type TransactionGroupMemberInput = Schemas["TransactionGroupMemberInput"];
 export type TransactionGroupMemberUpdate = Schemas["TransactionGroupMemberUpdate"];
+export type AssetResponse = Schemas["AssetResponse"];
+export type AssetListResponse = Schemas["AssetListResponse"];
+export type AssetType = Schemas["AssetType"];
+export type CreateAssetRequest = Schemas["CreateAssetRequest"];
+export type UpdateAssetRequest = Schemas["UpdateAssetRequest"];
+export type PortfolioSummary = Schemas["PortfolioSummary"];
+export type AllocationEntry = Schemas["AllocationEntry"];
+export type AssetHistoryEntry = Schemas["AssetHistoryEntry"];
+export type AllocationResponse = Schemas["AllocationResponse"];
 
 export class ApiError extends Error {
   constructor(
@@ -264,4 +273,66 @@ export function deleteTransactionGroup(id: string): Promise<void> {
   return request<void>(`/api/v1/transaction-groups/${id}`, {
     method: "DELETE",
   });
+}
+
+type AssetListResult = paths["/assets"]["get"]["responses"]["200"]["content"]["application/json"];
+
+export function listAssets(page = 1, perPage = 100): Promise<AssetListResult> {
+  return request<AssetListResult>(`/api/v1/assets?page=${page}&per_page=${perPage}`);
+}
+
+type AssetResult = paths["/assets/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
+
+export function getAsset(id: string): Promise<AssetResult> {
+  return request<AssetResult>(`/api/v1/assets/${id}`);
+}
+
+type CreateAssetBody = paths["/assets"]["post"]["requestBody"]["content"]["application/json"];
+type CreateAssetResult =
+  paths["/assets"]["post"]["responses"]["201"]["content"]["application/json"];
+
+export function createAsset(body: CreateAssetBody): Promise<CreateAssetResult> {
+  return request<CreateAssetResult>("/api/v1/assets", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+type UpdateAssetBody = paths["/assets/{id}"]["put"]["requestBody"]["content"]["application/json"];
+type UpdateAssetResult =
+  paths["/assets/{id}"]["put"]["responses"]["200"]["content"]["application/json"];
+
+export function updateAsset(id: string, body: UpdateAssetBody): Promise<UpdateAssetResult> {
+  return request<UpdateAssetResult>(`/api/v1/assets/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteAsset(id: string): Promise<void> {
+  return request<void>(`/api/v1/assets/${id}`, { method: "DELETE" });
+}
+
+type AssetHistoryResult =
+  paths["/assets/{id}/history"]["get"]["responses"]["200"]["content"]["application/json"];
+
+type HistoryPeriod = NonNullable<
+  paths["/assets/{id}/history"]["get"]["parameters"]["query"]
+>["period"];
+
+export function getAssetHistory(id: string, period?: HistoryPeriod): Promise<AssetHistoryResult> {
+  const query = period ? `?period=${period}` : "";
+  return request<AssetHistoryResult>(`/api/v1/assets/${id}/history${query}`);
+}
+
+type AllocationResult =
+  paths["/assets/allocation"]["get"]["responses"]["200"]["content"]["application/json"];
+
+type AllocationPeriod = NonNullable<
+  paths["/assets/allocation"]["get"]["parameters"]["query"]
+>["period"];
+
+export function getAssetAllocation(period?: AllocationPeriod): Promise<AllocationResult> {
+  const query = period ? `?period=${period}` : "";
+  return request<AllocationResult>(`/api/v1/assets/allocation${query}`);
 }
