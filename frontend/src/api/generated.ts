@@ -150,6 +150,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List distinct categories used by the current user */
+        get: operations["listCategories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transaction-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List transaction groups for current user */
+        get: operations["listTransactionGroups"];
+        put?: never;
+        /** Create a transaction group with member transactions */
+        post: operations["createTransactionGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transaction-groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdParam"];
+            };
+            cookie?: never;
+        };
+        /** Get transaction group with members */
+        get: operations["getTransactionGroup"];
+        /** Update a transaction group */
+        put: operations["updateTransactionGroup"];
+        post?: never;
+        /** Soft delete a transaction group and its member transactions */
+        delete: operations["deleteTransactionGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/assets": {
         parameters: {
             query?: never;
@@ -570,6 +626,8 @@ export interface components {
             account_id: string;
             notes?: string;
             is_recurring?: boolean;
+            /** Format: uuid */
+            group_id?: string;
         };
         UpdateTransactionRequest: {
             type?: components["schemas"]["TransactionType"];
@@ -583,6 +641,8 @@ export interface components {
             account_id?: string;
             notes?: string;
             is_recurring?: boolean;
+            /** Format: uuid */
+            group_id?: string;
         };
         TransactionResponse: {
             /** Format: uuid */
@@ -601,6 +661,8 @@ export interface components {
             is_recurring: boolean;
             /** Format: uuid */
             recurring_transaction_id?: string;
+            /** Format: uuid */
+            group_id?: string;
             tags: string[];
             /** Format: date-time */
             created_at: string;
@@ -617,6 +679,58 @@ export interface components {
                 row: number;
                 message: string;
             }[];
+        };
+        CreateTransactionGroupRequest: {
+            name: string;
+            members: components["schemas"]["TransactionGroupMemberInput"][];
+        };
+        TransactionGroupMemberInput: {
+            type: components["schemas"]["TransactionType"];
+            category: string;
+            amount: number;
+            /** Format: date */
+            date: string;
+            /** Format: uuid */
+            account_id: string;
+            notes?: string;
+            tags?: string[];
+        };
+        UpdateTransactionGroupRequest: {
+            name?: string;
+            members?: components["schemas"]["TransactionGroupMemberUpdate"][];
+        };
+        TransactionGroupMemberUpdate: {
+            /** Format: uuid */
+            id?: string;
+            type: components["schemas"]["TransactionType"];
+            category: string;
+            amount: number;
+            /** Format: date */
+            date: string;
+            /** Format: uuid */
+            account_id: string;
+            notes?: string;
+            tags?: string[];
+        };
+        TransactionGroupResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            user_id: string;
+            name: string;
+            total: number;
+            members: components["schemas"]["TransactionResponse"][];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        TransactionGroupListResponse: {
+            data: components["schemas"]["TransactionGroupResponse"][];
+            pagination: components["schemas"]["PaginationMeta"];
+        };
+        CategoriesResponse: {
+            categories: string[];
         };
         CreateAssetRequest: {
             name: string;
@@ -1144,6 +1258,7 @@ export interface operations {
                 /** @description Comma-separated tag names */
                 tags?: string;
                 search?: string;
+                group_id?: string;
             };
             header?: never;
             path?: never;
@@ -1285,6 +1400,152 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Transaction deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of categories */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoriesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listTransactionGroups: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["PageParam"];
+                per_page?: components["parameters"]["PerPageParam"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transaction group list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionGroupListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createTransactionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTransactionGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description Transaction group created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionGroupResponse"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getTransactionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transaction group detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionGroupResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateTransactionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTransactionGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description Transaction group updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionGroupResponse"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTransactionGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transaction group deleted */
             204: {
                 headers: {
                     [name: string]: unknown;

@@ -205,6 +205,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: group_id
+          in: query
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Transaction list
@@ -317,6 +322,113 @@ paths:
       responses:
         "204":
           description: Transaction deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List distinct categories used by the current user
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoriesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /transaction-groups:
+    get:
+      operationId: listTransactionGroups
+      tags: [transaction-groups]
+      summary: List transaction groups for current user
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PerPageParam"
+      responses:
+        "200":
+          description: Transaction group list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionGroupListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createTransactionGroup
+      tags: [transaction-groups]
+      summary: Create a transaction group with member transactions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransactionGroupRequest"
+      responses:
+        "201":
+          description: Transaction group created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionGroupResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /transaction-groups/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdParam"
+    get:
+      operationId: getTransactionGroup
+      tags: [transaction-groups]
+      summary: Get transaction group with members
+      responses:
+        "200":
+          description: Transaction group detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionGroupResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateTransactionGroup
+      tags: [transaction-groups]
+      summary: Update a transaction group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTransactionGroupRequest"
+      responses:
+        "200":
+          description: Transaction group updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionGroupResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteTransactionGroup
+      tags: [transaction-groups]
+      summary: Soft delete a transaction group and its member transactions
+      responses:
+        "204":
+          description: Transaction group deleted
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1156,6 +1268,9 @@ components:
           type: string
         is_recurring:
           type: boolean
+        group_id:
+          type: string
+          format: uuid
 
     UpdateTransactionRequest:
       type: object
@@ -1184,6 +1299,9 @@ components:
           type: string
         is_recurring:
           type: boolean
+        group_id:
+          type: string
+          format: uuid
 
     TransactionResponse:
       type: object
@@ -1226,6 +1344,9 @@ components:
         is_recurring:
           type: boolean
         recurring_transaction_id:
+          type: string
+          format: uuid
+        group_id:
           type: string
           format: uuid
         tags:
@@ -1272,6 +1393,153 @@ components:
                 type: integer
               message:
                 type: string
+
+    CreateTransactionGroupRequest:
+      type: object
+      required:
+        - name
+        - members
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        members:
+          type: array
+          minItems: 2
+          items:
+            $ref: "#/components/schemas/TransactionGroupMemberInput"
+
+    TransactionGroupMemberInput:
+      type: object
+      required:
+        - type
+        - category
+        - amount
+        - date
+        - account_id
+      properties:
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        category:
+          type: string
+          minLength: 1
+        amount:
+          type: number
+          minimum: 0.01
+        date:
+          type: string
+          format: date
+        account_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    UpdateTransactionGroupRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        members:
+          type: array
+          minItems: 2
+          items:
+            $ref: "#/components/schemas/TransactionGroupMemberUpdate"
+
+    TransactionGroupMemberUpdate:
+      type: object
+      required:
+        - type
+        - category
+        - amount
+        - date
+        - account_id
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        category:
+          type: string
+          minLength: 1
+        amount:
+          type: number
+          minimum: 0.01
+        date:
+          type: string
+          format: date
+        account_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    TransactionGroupResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - name
+        - total
+        - members
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        total:
+          type: number
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransactionResponse"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TransactionGroupListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransactionGroupResponse"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    CategoriesResponse:
+      type: object
+      required:
+        - categories
+      properties:
+        categories:
+          type: array
+          items:
+            type: string
 
     CreateAssetRequest:
       type: object

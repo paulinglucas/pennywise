@@ -10,9 +10,10 @@ const navItems = [
 ] as const;
 
 function navLinkClass({ isActive }: { isActive: boolean }): string {
-  const base = "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors";
+  const base =
+    "nav-link flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all";
   if (isActive) {
-    return `${base} text-white`;
+    return `${base} active text-white`;
   }
   return base;
 }
@@ -77,7 +78,9 @@ export function MobileTabBar() {
           key={item.to}
           to={item.to}
           end={item.to === "/"}
-          className="flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium"
+          className={({ isActive }) =>
+            `nav-tab flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors${isActive ? " active" : ""}`
+          }
           style={({ isActive }) => ({
             color: isActive ? "var(--color-accent)" : "var(--color-text-secondary)",
           })}

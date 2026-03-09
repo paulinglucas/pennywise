@@ -38,6 +38,12 @@ export default [
         RequestInit: "readonly",
         React: "readonly",
         ResizeObserver: "readonly",
+        HTMLDivElement: "readonly",
+        HTMLInputElement: "readonly",
+        HTMLSelectElement: "readonly",
+        HTMLFormElement: "readonly",
+        KeyboardEvent: "readonly",
+        FileReader: "readonly",
       },
     },
     plugins: {
