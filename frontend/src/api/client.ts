@@ -38,6 +38,9 @@ export type GoalReorderRequest = Schemas["GoalReorderRequest"];
 export type GoalContributionResponse = Schemas["GoalContributionResponse"];
 export type GoalContributionListResponse = Schemas["GoalContributionListResponse"];
 export type CreateGoalContributionRequest = Schemas["CreateGoalContributionRequest"];
+export type ProjectionRequest = Schemas["ProjectionRequest"];
+export type ProjectionResponse = Schemas["ProjectionResponse"];
+export type Scenario = Schemas["Scenario"];
 
 export class ApiError extends Error {
   constructor(
@@ -426,5 +429,16 @@ export function createGoalContribution(
 export function deleteGoalContribution(goalId: string, contributionId: string): Promise<void> {
   return request<void>(`/api/v1/goals/${goalId}/contributions/${contributionId}`, {
     method: "DELETE",
+  });
+}
+
+type ProjectionBody = paths["/projections"]["post"]["requestBody"]["content"]["application/json"];
+type ProjectionResult =
+  paths["/projections"]["post"]["responses"]["200"]["content"]["application/json"];
+
+export function computeProjection(body: ProjectionBody): Promise<ProjectionResult> {
+  return request<ProjectionResult>("/api/v1/projections", {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }
