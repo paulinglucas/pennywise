@@ -1,0 +1,104 @@
+import { Plus } from "lucide-react";
+import type { GoalResponse } from "@/api/client";
+import { formatCurrency, formatDate } from "@/utils/formatting";
+
+interface DebtGoalCardProps {
+  goal: GoalResponse;
+  onClick: () => void;
+  onContribute: () => void;
+}
+
+export default function DebtGoalCard({ goal, onClick, onContribute }: DebtGoalCardProps) {
+  const progressPercent =
+    goal.target_amount > 0
+      ? ((goal.target_amount - goal.current_amount) / goal.target_amount) * 100
+      : 0;
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onClick();
+      }}
+      className="cursor-pointer rounded-lg p-5 transition-all"
+      style={{
+        backgroundColor: "var(--color-surface)",
+        border: "1px solid var(--color-border)",
+      }}
+    >
+      <div className="flex items-start justify-between">
+        <p className="font-medium" style={{ color: "var(--color-text-primary)" }}>
+          {goal.name}
+        </p>
+        <p
+          className="tabular-nums text-lg font-semibold"
+          style={{ color: "var(--color-negative)" }}
+        >
+          {formatCurrency(goal.current_amount)}
+        </p>
+      </div>
+
+      <div className="mt-3">
+        <div
+          role="progressbar"
+          aria-valuenow={progressPercent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="h-2 overflow-hidden rounded-full"
+          style={{ backgroundColor: "var(--color-background)" }}
+        >
+          <div
+            className="h-full rounded-full transition-all"
+            style={{
+              width: `${Math.min(Math.max(progressPercent, 0), 100)}%`,
+              backgroundColor: "var(--color-text-secondary)",
+            }}
+          />
+        </div>
+        <div className="mt-1 flex justify-between text-xs">
+          <span style={{ color: "var(--color-text-secondary)" }}>
+            {progressPercent.toFixed(0)}% paid off
+          </span>
+          <span className="tabular-nums" style={{ color: "var(--color-text-secondary)" }}>
+            of {formatCurrency(goal.target_amount)}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-col gap-1 text-xs">
+        {goal.required_monthly_contribution !== undefined && (
+          <div className="flex justify-between">
+            <span style={{ color: "var(--color-text-secondary)" }}>Monthly Payment</span>
+            <span className="tabular-nums" style={{ color: "var(--color-text-primary)" }}>
+              {formatCurrency(goal.required_monthly_contribution)}
+            </span>
+          </div>
+        )}
+        {goal.deadline && (
+          <div className="flex justify-between">
+            <span style={{ color: "var(--color-text-secondary)" }}>Payoff Date</span>
+            <span style={{ color: "var(--color-text-primary)" }}>{formatDate(goal.deadline)}</span>
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onContribute();
+        }}
+        onKeyDown={(event) => event.stopPropagation()}
+        className="mt-3 flex w-full items-center justify-center gap-1 rounded-md py-1.5 text-xs font-medium transition-all"
+        style={{
+          backgroundColor: "var(--color-accent)" + "18",
+          color: "var(--color-accent)",
+        }}
+      >
+        <Plus size={14} />
+        Make Payment
+      </button>
+    </div>
+  );
+}

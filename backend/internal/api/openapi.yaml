@@ -689,6 +689,72 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /goals/{id}/contributions:
+    parameters:
+      - $ref: "#/components/parameters/IdParam"
+    get:
+      operationId: listGoalContributions
+      tags: [goals]
+      summary: List contributions for a goal
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PerPageParam"
+      responses:
+        "200":
+          description: Contribution list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalContributionListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createGoalContribution
+      tags: [goals]
+      summary: Record a contribution toward a goal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGoalContributionRequest"
+      responses:
+        "201":
+          description: Contribution recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalContributionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /goals/{id}/contributions/{contribution_id}:
+    parameters:
+      - $ref: "#/components/parameters/IdParam"
+      - name: contribution_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: deleteGoalContribution
+      tags: [goals]
+      summary: Delete a contribution and reverse its effect on the goal
+      responses:
+        "204":
+          description: Contribution deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /recurring:
     get:
       operationId: listRecurring
@@ -1863,6 +1929,70 @@ components:
               priority_rank:
                 type: integer
                 minimum: 1
+
+    CreateGoalContributionRequest:
+      type: object
+      required:
+        - amount
+      properties:
+        amount:
+          type: number
+          minimum: 0.01
+        notes:
+          type: string
+          maxLength: 500
+        contributed_at:
+          type: string
+          format: date
+        transaction_id:
+          type: string
+          format: uuid
+
+    GoalContributionResponse:
+      type: object
+      required:
+        - id
+        - goal_id
+        - user_id
+        - amount
+        - contributed_at
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        goal_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        notes:
+          type: string
+        transaction_id:
+          type: string
+          format: uuid
+        contributed_at:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+
+    GoalContributionListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoalContributionResponse"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
 
     CreateRecurringRequest:
       type: object

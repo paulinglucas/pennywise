@@ -29,6 +29,15 @@ export type PortfolioSummary = Schemas["PortfolioSummary"];
 export type AllocationEntry = Schemas["AllocationEntry"];
 export type AssetHistoryEntry = Schemas["AssetHistoryEntry"];
 export type AllocationResponse = Schemas["AllocationResponse"];
+export type GoalResponse = Schemas["GoalResponse"];
+export type GoalListResponse = Schemas["GoalListResponse"];
+export type GoalType = Schemas["GoalType"];
+export type CreateGoalRequest = Schemas["CreateGoalRequest"];
+export type UpdateGoalRequest = Schemas["UpdateGoalRequest"];
+export type GoalReorderRequest = Schemas["GoalReorderRequest"];
+export type GoalContributionResponse = Schemas["GoalContributionResponse"];
+export type GoalContributionListResponse = Schemas["GoalContributionListResponse"];
+export type CreateGoalContributionRequest = Schemas["CreateGoalContributionRequest"];
 
 export class ApiError extends Error {
   constructor(
@@ -335,4 +344,87 @@ type AllocationPeriod = NonNullable<
 export function getAssetAllocation(period?: AllocationPeriod): Promise<AllocationResult> {
   const query = period ? `?period=${period}` : "";
   return request<AllocationResult>(`/api/v1/assets/allocation${query}`);
+}
+
+type GoalListResult = paths["/goals"]["get"]["responses"]["200"]["content"]["application/json"];
+
+export function listGoals(page = 1, perPage = 100): Promise<GoalListResult> {
+  return request<GoalListResult>(`/api/v1/goals?page=${page}&per_page=${perPage}`);
+}
+
+type GoalResult = paths["/goals/{id}"]["get"]["responses"]["200"]["content"]["application/json"];
+
+export function getGoal(id: string): Promise<GoalResult> {
+  return request<GoalResult>(`/api/v1/goals/${id}`);
+}
+
+type CreateGoalBody = paths["/goals"]["post"]["requestBody"]["content"]["application/json"];
+type CreateGoalResult = paths["/goals"]["post"]["responses"]["201"]["content"]["application/json"];
+
+export function createGoal(body: CreateGoalBody): Promise<CreateGoalResult> {
+  return request<CreateGoalResult>("/api/v1/goals", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+type UpdateGoalBody = paths["/goals/{id}"]["put"]["requestBody"]["content"]["application/json"];
+type UpdateGoalResult =
+  paths["/goals/{id}"]["put"]["responses"]["200"]["content"]["application/json"];
+
+export function updateGoal(id: string, body: UpdateGoalBody): Promise<UpdateGoalResult> {
+  return request<UpdateGoalResult>(`/api/v1/goals/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteGoal(id: string): Promise<void> {
+  return request<void>(`/api/v1/goals/${id}`, { method: "DELETE" });
+}
+
+type ReorderGoalsBody =
+  paths["/goals/reorder"]["put"]["requestBody"]["content"]["application/json"];
+type ReorderGoalsResult =
+  paths["/goals/reorder"]["put"]["responses"]["200"]["content"]["application/json"];
+
+export function reorderGoals(body: ReorderGoalsBody): Promise<ReorderGoalsResult> {
+  return request<ReorderGoalsResult>("/api/v1/goals/reorder", {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+type ContributionListResult =
+  paths["/goals/{id}/contributions"]["get"]["responses"]["200"]["content"]["application/json"];
+
+export function listGoalContributions(
+  goalId: string,
+  page = 1,
+  perPage = 50,
+): Promise<ContributionListResult> {
+  return request<ContributionListResult>(
+    `/api/v1/goals/${goalId}/contributions?page=${page}&per_page=${perPage}`,
+  );
+}
+
+type CreateContributionBody =
+  paths["/goals/{id}/contributions"]["post"]["requestBody"]["content"]["application/json"];
+type CreateContributionResult =
+  paths["/goals/{id}/contributions"]["post"]["responses"]["201"]["content"]["application/json"];
+
+export function createGoalContribution(
+  goalId: string,
+  body: CreateContributionBody,
+): Promise<CreateContributionResult> {
+  return request<CreateContributionResult>(`/api/v1/goals/${goalId}/contributions`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteGoalContribution(goalId: string, contributionId: string): Promise<void> {
+  return request<void>(`/api/v1/goals/${goalId}/contributions/${contributionId}`, {
+    method: "DELETE",
+  });
 }

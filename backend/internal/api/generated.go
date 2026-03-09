@@ -550,6 +550,14 @@ type CreateAssetRequest struct {
 	Name         string                  `json:"name"`
 }
 
+// CreateGoalContributionRequest defines model for CreateGoalContributionRequest.
+type CreateGoalContributionRequest struct {
+	Amount        float32             `json:"amount"`
+	ContributedAt *openapi_types.Date `json:"contributed_at,omitempty"`
+	Notes         *string             `json:"notes,omitempty"`
+	TransactionId *openapi_types.UUID `json:"transaction_id,omitempty"`
+}
+
 // CreateGoalRequest defines model for CreateGoalRequest.
 type CreateGoalRequest struct {
 	CurrentAmount   *float32            `json:"current_amount,omitempty"`
@@ -642,6 +650,24 @@ type ExportResponse struct {
 
 // Frequency defines model for Frequency.
 type Frequency string
+
+// GoalContributionListResponse defines model for GoalContributionListResponse.
+type GoalContributionListResponse struct {
+	Data       []GoalContributionResponse `json:"data"`
+	Pagination PaginationMeta             `json:"pagination"`
+}
+
+// GoalContributionResponse defines model for GoalContributionResponse.
+type GoalContributionResponse struct {
+	Amount        float32             `json:"amount"`
+	ContributedAt openapi_types.Date  `json:"contributed_at"`
+	CreatedAt     time.Time           `json:"created_at"`
+	GoalId        openapi_types.UUID  `json:"goal_id"`
+	Id            openapi_types.UUID  `json:"id"`
+	Notes         *string             `json:"notes,omitempty"`
+	TransactionId *openapi_types.UUID `json:"transaction_id,omitempty"`
+	UserId        openapi_types.UUID  `json:"user_id"`
+}
 
 // GoalListResponse defines model for GoalListResponse.
 type GoalListResponse struct {
@@ -1008,6 +1034,12 @@ type ListGoalsParams struct {
 	PerPage *PerPageParam `form:"per_page,omitempty" json:"per_page,omitempty"`
 }
 
+// ListGoalContributionsParams defines parameters for ListGoalContributions.
+type ListGoalContributionsParams struct {
+	Page    *PageParam    `form:"page,omitempty" json:"page,omitempty"`
+	PerPage *PerPageParam `form:"per_page,omitempty" json:"per_page,omitempty"`
+}
+
 // ListRecurringParams defines parameters for ListRecurring.
 type ListRecurringParams struct {
 	Page    *PageParam    `form:"page,omitempty" json:"page,omitempty"`
@@ -1067,6 +1099,9 @@ type ReorderGoalsJSONRequestBody = GoalReorderRequest
 
 // UpdateGoalJSONRequestBody defines body for UpdateGoal for application/json ContentType.
 type UpdateGoalJSONRequestBody = UpdateGoalRequest
+
+// CreateGoalContributionJSONRequestBody defines body for CreateGoalContribution for application/json ContentType.
+type CreateGoalContributionJSONRequestBody = CreateGoalContributionRequest
 
 // ComputeProjectionJSONRequestBody defines body for ComputeProjection for application/json ContentType.
 type ComputeProjectionJSONRequestBody = ProjectionRequest
@@ -1181,6 +1216,15 @@ type ServerInterface interface {
 	// Update a goal
 	// (PUT /goals/{id})
 	UpdateGoal(w http.ResponseWriter, r *http.Request, id IdParam)
+	// List contributions for a goal
+	// (GET /goals/{id}/contributions)
+	ListGoalContributions(w http.ResponseWriter, r *http.Request, id IdParam, params ListGoalContributionsParams)
+	// Record a contribution toward a goal
+	// (POST /goals/{id}/contributions)
+	CreateGoalContribution(w http.ResponseWriter, r *http.Request, id IdParam)
+	// Delete a contribution and reverse its effect on the goal
+	// (DELETE /goals/{id}/contributions/{contribution_id})
+	DeleteGoalContribution(w http.ResponseWriter, r *http.Request, id IdParam, contributionId openapi_types.UUID)
 	// Health check
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -1406,6 +1450,24 @@ func (_ Unimplemented) GetGoal(w http.ResponseWriter, r *http.Request, id IdPara
 // Update a goal
 // (PUT /goals/{id})
 func (_ Unimplemented) UpdateGoal(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List contributions for a goal
+// (GET /goals/{id}/contributions)
+func (_ Unimplemented) ListGoalContributions(w http.ResponseWriter, r *http.Request, id IdParam, params ListGoalContributionsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Record a contribution toward a goal
+// (POST /goals/{id}/contributions)
+func (_ Unimplemented) CreateGoalContribution(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete a contribution and reverse its effect on the goal
+// (DELETE /goals/{id}/contributions/{contribution_id})
+func (_ Unimplemented) DeleteGoalContribution(w http.ResponseWriter, r *http.Request, id IdParam, contributionId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2335,6 +2397,127 @@ func (siw *ServerInterfaceWrapper) UpdateGoal(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// ListGoalContributions operation middleware
+func (siw *ServerInterfaceWrapper) ListGoalContributions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListGoalContributionsParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "per_page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "per_page", r.URL.Query(), &params.PerPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "per_page", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListGoalContributions(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateGoalContribution operation middleware
+func (siw *ServerInterfaceWrapper) CreateGoalContribution(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateGoalContribution(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteGoalContribution operation middleware
+func (siw *ServerInterfaceWrapper) DeleteGoalContribution(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "contribution_id" -------------
+	var contributionId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "contribution_id", chi.URLParam(r, "contribution_id"), &contributionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "contribution_id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteGoalContribution(w, r, id, contributionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -3110,6 +3293,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/goals/{id}", wrapper.UpdateGoal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/goals/{id}/contributions", wrapper.ListGoalContributions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/goals/{id}/contributions", wrapper.CreateGoalContribution)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/goals/{id}/contributions/{contribution_id}", wrapper.DeleteGoalContribution)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/health", wrapper.GetHealth)

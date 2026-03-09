@@ -337,6 +337,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/goals/{id}/contributions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdParam"];
+            };
+            cookie?: never;
+        };
+        /** List contributions for a goal */
+        get: operations["listGoalContributions"];
+        put?: never;
+        /** Record a contribution toward a goal */
+        post: operations["createGoalContribution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/goals/{id}/contributions/{contribution_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdParam"];
+                contribution_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a contribution and reverse its effect on the goal */
+        delete: operations["deleteGoalContribution"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recurring": {
         parameters: {
             query?: never;
@@ -864,6 +904,34 @@ export interface components {
                 id: string;
                 priority_rank: number;
             }[];
+        };
+        CreateGoalContributionRequest: {
+            amount: number;
+            notes?: string;
+            /** Format: date */
+            contributed_at?: string;
+            /** Format: uuid */
+            transaction_id?: string;
+        };
+        GoalContributionResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            goal_id: string;
+            /** Format: uuid */
+            user_id: string;
+            amount: number;
+            notes?: string;
+            /** Format: uuid */
+            transaction_id?: string;
+            /** Format: date */
+            contributed_at: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        GoalContributionListResponse: {
+            data: components["schemas"]["GoalContributionResponse"][];
+            pagination: components["schemas"]["PaginationMeta"];
         };
         CreateRecurringRequest: {
             /** Format: uuid */
@@ -1871,6 +1939,85 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Goal deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listGoalContributions: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["PageParam"];
+                per_page?: components["parameters"]["PerPageParam"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contribution list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalContributionListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createGoalContribution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGoalContributionRequest"];
+            };
+        };
+        responses: {
+            /** @description Contribution recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalContributionResponse"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteGoalContribution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdParam"];
+                contribution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contribution deleted */
             204: {
                 headers: {
                     [name: string]: unknown;

@@ -110,12 +110,13 @@ func buildRouter(logger *slog.Logger, database *sql.DB) http.Handler {
 	groupRepo := queries.NewTransactionGroupRepository(database)
 	assetRepo := queries.NewAssetRepository(database)
 	goalRepo := queries.NewGoalRepository(database)
+	goalContribRepo := queries.NewGoalContributionRepository(database)
 	recurringRepo := queries.NewRecurringRepository(database)
 	alertRepo := queries.NewAlertRepository(database)
 	dashboardRepo := queries.NewDashboardRepository(database)
 	auditRepo := queries.NewAuditLogRepository(database)
 	dlqWriter := dlq.NewFailedRequestWriter(database)
-	handler := api.NewAppHandler(userRepo, accountRepo, txnRepo, groupRepo, assetRepo, goalRepo, recurringRepo, alertRepo, dashboardRepo, auditRepo, dlqWriter, secret)
+	handler := api.NewAppHandler(userRepo, accountRepo, txnRepo, groupRepo, assetRepo, goalRepo, goalContribRepo, recurringRepo, alertRepo, dashboardRepo, auditRepo, dlqWriter, secret)
 
 	validator, err := middleware.Validation(api.OpenAPISpec, "/api/v1")
 	if err != nil {
