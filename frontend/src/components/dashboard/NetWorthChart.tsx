@@ -32,7 +32,7 @@ function PeriodToggle({
         <button
           key={period.key}
           onClick={() => onPeriodChange(period.key)}
-          className="rounded-md px-3 py-1 text-xs font-medium transition-colors"
+          className={`btn-toggle rounded-md px-3 py-1 text-xs font-medium transition-all${activePeriod === period.key ? " active" : ""}`}
           style={
             activePeriod === period.key
               ? { backgroundColor: "var(--color-accent-muted)", color: "var(--color-accent)" }

@@ -25,6 +25,24 @@ type TransactionRepository interface {
 	Update(ctx context.Context, txn *models.Transaction, tags []string) (bool, error)
 	SoftDelete(ctx context.Context, userID, id string) (bool, error)
 	BulkCreate(ctx context.Context, txns []models.Transaction) (int, []queries.BulkCreateError)
+	ListCategories(ctx context.Context, userID string) ([]string, error)
+}
+
+func (h *AppHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	requestID := middleware.GetRequestID(r.Context())
+
+	categories, err := h.transactions.ListCategories(r.Context(), userID)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, INTERNALERROR, "Failed to list categories", requestID)
+		return
+	}
+
+	if categories == nil {
+		categories = []string{}
+	}
+
+	WriteJSON(w, http.StatusOK, CategoriesResponse{Categories: categories})
 }
 
 type AuditLogWriter interface {
@@ -277,7 +295,7 @@ func newTransactionModel(userID string, req CreateTransactionRequest) *models.Tr
 	if req.IsRecurring != nil {
 		isRecurring = *req.IsRecurring
 	}
-	return &models.Transaction{
+	txn := &models.Transaction{
 		ID:          uuid.New().String(),
 		UserID:      userID,
 		AccountID:   req.AccountId.String(),
@@ -289,6 +307,11 @@ func newTransactionModel(userID string, req CreateTransactionRequest) *models.Tr
 		Notes:       req.Notes,
 		IsRecurring: isRecurring,
 	}
+	if req.GroupId != nil {
+		s := req.GroupId.String()
+		txn.GroupID = &s
+	}
+	return txn
 }
 
 func transactionToResponse(txn models.Transaction) TransactionResponse {
@@ -314,6 +337,10 @@ func transactionToResponse(txn models.Transaction) TransactionResponse {
 	if txn.RecurringTransactionID != nil {
 		id := ParseID(*txn.RecurringTransactionID)
 		resp.RecurringTransactionId = &id
+	}
+	if txn.GroupID != nil {
+		id := ParseID(*txn.GroupID)
+		resp.GroupId = &id
 	}
 	return resp
 }
@@ -342,6 +369,10 @@ func applyTransactionUpdates(txn *models.Transaction, req UpdateTransactionReque
 	}
 	if req.IsRecurring != nil {
 		txn.IsRecurring = *req.IsRecurring
+	}
+	if req.GroupId != nil {
+		s := req.GroupId.String()
+		txn.GroupID = &s
 	}
 
 	if req.Tags != nil {
@@ -385,6 +416,10 @@ func buildTransactionFilter(params ListTransactionsParams) queries.TransactionFi
 	}
 	if params.Search != nil {
 		filter.Search = params.Search
+	}
+	if params.GroupId != nil {
+		s := params.GroupId.String()
+		filter.GroupID = &s
 	}
 
 	return filter

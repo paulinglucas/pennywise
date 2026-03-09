@@ -99,7 +99,7 @@ func TestMigrate(t *testing.T) {
 		var count int
 		err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM schema_migrations").Scan(&count)
 		require.NoError(t, err)
-		assert.Equal(t, 10, count)
+		assert.Equal(t, 12, count)
 	})
 
 	t.Run("records applied migrations", func(t *testing.T) {
@@ -130,6 +130,8 @@ func TestMigrate(t *testing.T) {
 			"008_create_audit_log.sql",
 			"009_create_failed_requests.sql",
 			"010_add_original_balance_to_accounts.sql",
+			"011_create_transaction_groups.sql",
+			"012_add_group_id_to_transactions.sql",
 		}, names)
 	})
 
@@ -149,6 +151,9 @@ func TestMigrate(t *testing.T) {
 			"idx_alerts_user_unread",
 			"idx_failed_requests_created",
 			"idx_audit_entity",
+			"idx_transaction_groups_user",
+			"idx_transaction_groups_deleted",
+			"idx_transactions_group",
 		}
 		for _, expected := range expectedIndexes {
 			assert.Contains(t, indexes, expected, "missing index: %s", expected)
@@ -195,7 +200,7 @@ func TestMigrate(t *testing.T) {
 		assert.ElementsMatch(t, []string{
 			"id", "user_id", "account_id", "type", "category", "amount",
 			"currency", "date", "notes", "is_recurring", "recurring_transaction_id",
-			"created_at", "updated_at", "deleted_at",
+			"group_id", "created_at", "updated_at", "deleted_at",
 		}, columns)
 	})
 
@@ -231,6 +236,16 @@ func TestMigrate(t *testing.T) {
 			"id", "user_id", "account_id", "type", "category", "amount",
 			"currency", "frequency", "next_occurrence", "is_active",
 			"created_at", "updated_at", "deleted_at",
+		}, columns)
+	})
+
+	t.Run("transaction_groups table has correct columns", func(t *testing.T) {
+		db := openTestDB(t)
+		require.NoError(t, Migrate(db))
+
+		columns := queryColumns(t, db, "transaction_groups")
+		assert.ElementsMatch(t, []string{
+			"id", "user_id", "name", "created_at", "updated_at", "deleted_at",
 		}, columns)
 	})
 

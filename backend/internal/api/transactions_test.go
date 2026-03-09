@@ -757,3 +757,43 @@ func TestGetTransaction_ReturnsRecurringTransactionId(t *testing.T) {
 	require.NotNil(t, resp.RecurringTransactionId)
 	assert.Equal(t, recurringID, resp.RecurringTransactionId.String())
 }
+
+func TestListCategories_ReturnsDistinctCategories(t *testing.T) {
+	db, router, cookie := setupTransactionTests(t)
+
+	_, err := db.ExecContext(context.Background(),
+		`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"txn-cat-1", txnTestUserID, txnTestAccountID, "expense", "food", 10, "USD", "2026-01-01",
+	)
+	require.NoError(t, err)
+
+	_, err = db.ExecContext(context.Background(),
+		`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"txn-cat-2", txnTestUserID, txnTestAccountID, "expense", "rent", 1000, "USD", "2026-01-01",
+	)
+	require.NoError(t, err)
+
+	req := authedRequest(http.MethodGet, "/api/v1/categories", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var catResp api.CategoriesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &catResp))
+	assert.Equal(t, []string{"food", "rent"}, catResp.Categories)
+}
+
+func TestListCategories_Empty(t *testing.T) {
+	_, router, cookie := setupTransactionTests(t)
+
+	req := authedRequest(http.MethodGet, "/api/v1/categories", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var catResp api.CategoriesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &catResp))
+	assert.Empty(t, catResp.Categories)
+}

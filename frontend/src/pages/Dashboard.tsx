@@ -36,7 +36,7 @@ function DashboardError({ onRetry }: { onRetry: () => void }) {
       </p>
       <button
         onClick={onRetry}
-        className="rounded-md px-4 py-2 text-sm font-medium transition-all"
+        className="btn-primary rounded-md px-4 py-2 text-sm font-medium transition-all"
         style={{
           backgroundColor: "var(--color-accent)",
           color: "var(--color-background)",

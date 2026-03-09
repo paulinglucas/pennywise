@@ -36,10 +36,20 @@ type Transaction struct {
 	Notes                  *string
 	IsRecurring            bool
 	RecurringTransactionID *string
+	GroupID                *string
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 	DeletedAt              *time.Time
 	Tags                   []string
+}
+
+type TransactionGroup struct {
+	ID        string
+	UserID    string
+	Name      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time
 }
 
 type TransactionTag struct {

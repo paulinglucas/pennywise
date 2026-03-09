@@ -451,3 +451,92 @@ func TestTransactionList_PaginationBeyondRange(t *testing.T) {
 	assert.Equal(t, 1, total)
 	assert.Empty(t, txns)
 }
+
+func TestListCategories_Empty(t *testing.T) {
+	database := setupTransactionTestDB(t)
+	repo := queries.NewTransactionRepository(database)
+
+	categories, err := repo.ListCategories(context.Background(), testUserID)
+	require.NoError(t, err)
+	assert.Empty(t, categories)
+}
+
+func TestListCategories_FromTransactions(t *testing.T) {
+	database := setupTransactionTestDB(t)
+	repo := queries.NewTransactionRepository(database)
+
+	date, _ := time.Parse("2006-01-02", "2026-01-15")
+	for i, cat := range []string{"food", "rent", "food"} {
+		require.NoError(t, repo.Create(context.Background(), &models.Transaction{
+			ID: fmt.Sprintf("txn-cat-%d", i), UserID: testUserID, AccountID: testAccountID,
+			Type: "expense", Category: cat, Amount: 10, Currency: "USD", Date: date,
+		}, nil))
+	}
+
+	categories, err := repo.ListCategories(context.Background(), testUserID)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"food", "rent"}, categories)
+}
+
+func TestListCategories_IncludesRecurring(t *testing.T) {
+	database := setupTransactionTestDB(t)
+	repo := queries.NewTransactionRepository(database)
+
+	date, _ := time.Parse("2006-01-02", "2026-01-15")
+	require.NoError(t, repo.Create(context.Background(), &models.Transaction{
+		ID: "txn-cat-r1", UserID: testUserID, AccountID: testAccountID,
+		Type: "expense", Category: "food", Amount: 10, Currency: "USD", Date: date,
+	}, nil))
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO recurring_transactions (id, user_id, account_id, type, category, amount, currency, frequency, next_occurrence)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"rec-cat-1", testUserID, testAccountID, "expense", "utilities", 100, "USD", "monthly", "2026-02-01",
+	)
+	require.NoError(t, err)
+
+	categories, err := repo.ListCategories(context.Background(), testUserID)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"food", "utilities"}, categories)
+}
+
+func TestListCategories_ExcludesDeleted(t *testing.T) {
+	database := setupTransactionTestDB(t)
+	repo := queries.NewTransactionRepository(database)
+
+	date, _ := time.Parse("2006-01-02", "2026-01-15")
+	require.NoError(t, repo.Create(context.Background(), &models.Transaction{
+		ID: "txn-cat-d1", UserID: testUserID, AccountID: testAccountID,
+		Type: "expense", Category: "food", Amount: 10, Currency: "USD", Date: date,
+	}, nil))
+	require.NoError(t, repo.Create(context.Background(), &models.Transaction{
+		ID: "txn-cat-d2", UserID: testUserID, AccountID: testAccountID,
+		Type: "expense", Category: "deleted_cat", Amount: 10, Currency: "USD", Date: date,
+	}, nil))
+
+	_, err := repo.SoftDelete(context.Background(), testUserID, "txn-cat-d2")
+	require.NoError(t, err)
+
+	categories, err := repo.ListCategories(context.Background(), testUserID)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"food"}, categories)
+}
+
+func TestListCategories_UserScoped(t *testing.T) {
+	database := setupTransactionTestDB(t)
+	repo := queries.NewTransactionRepository(database)
+
+	date, _ := time.Parse("2006-01-02", "2026-01-15")
+	require.NoError(t, repo.Create(context.Background(), &models.Transaction{
+		ID: "txn-cat-u1", UserID: testUserID, AccountID: testAccountID,
+		Type: "expense", Category: "food", Amount: 10, Currency: "USD", Date: date,
+	}, nil))
+	require.NoError(t, repo.Create(context.Background(), &models.Transaction{
+		ID: "txn-cat-u2", UserID: testUser2ID, AccountID: testAccount2ID,
+		Type: "expense", Category: "other_user_cat", Amount: 10, Currency: "USD", Date: date,
+	}, nil))
+
+	categories, err := repo.ListCategories(context.Background(), testUserID)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"food"}, categories)
+}

@@ -23,6 +23,7 @@ type TransactionFilter struct {
 	AmountMax *float64
 	Tags      []string
 	Search    *string
+	GroupID   *string
 }
 
 type SQLiteTransactionRepository struct {
@@ -44,10 +45,10 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, txn *models.Tr
 	defer func() { _ = tx.Rollback() }()
 
 	_, err = tx.ExecContext(ctx,
-		`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date, notes, is_recurring, recurring_transaction_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date, notes, is_recurring, recurring_transaction_id, group_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		txn.ID, txn.UserID, txn.AccountID, txn.Type, txn.Category, txn.Amount, txn.Currency,
-		txn.Date.Format("2006-01-02"), txn.Notes, txn.IsRecurring, txn.RecurringTransactionID,
+		txn.Date.Format("2006-01-02"), txn.Notes, txn.IsRecurring, txn.RecurringTransactionID, txn.GroupID,
 	)
 	if err != nil {
 		return err
@@ -67,11 +68,11 @@ func (r *SQLiteTransactionRepository) GetByID(ctx context.Context, userID, id st
 	var txn models.Transaction
 	var dateStr string
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, account_id, type, category, amount, currency, date, notes, is_recurring, recurring_transaction_id, created_at, updated_at
+		`SELECT id, user_id, account_id, type, category, amount, currency, date, notes, is_recurring, recurring_transaction_id, group_id, created_at, updated_at
 		 FROM transactions WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
 		id, userID,
 	).Scan(&txn.ID, &txn.UserID, &txn.AccountID, &txn.Type, &txn.Category, &txn.Amount, &txn.Currency,
-		&dateStr, &txn.Notes, &txn.IsRecurring, &txn.RecurringTransactionID, &txn.CreatedAt, &txn.UpdatedAt,
+		&dateStr, &txn.Notes, &txn.IsRecurring, &txn.RecurringTransactionID, &txn.GroupID, &txn.CreatedAt, &txn.UpdatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -124,7 +125,7 @@ func (r *SQLiteTransactionRepository) List(ctx context.Context, userID string, f
 	copy(dataArgs, args)
 	dataArgs = append(dataArgs, perPage, offset)
 
-	selectCols := "transactions.id, transactions.user_id, transactions.account_id, transactions.type, transactions.category, transactions.amount, transactions.currency, transactions.date, transactions.notes, transactions.is_recurring, transactions.recurring_transaction_id, transactions.created_at, transactions.updated_at"
+	selectCols := "transactions.id, transactions.user_id, transactions.account_id, transactions.type, transactions.category, transactions.amount, transactions.currency, transactions.date, transactions.notes, transactions.is_recurring, transactions.recurring_transaction_id, transactions.group_id, transactions.created_at, transactions.updated_at"
 
 	var dataQuery string
 	if len(filter.Tags) > 0 {
@@ -145,7 +146,7 @@ func (r *SQLiteTransactionRepository) List(ctx context.Context, userID string, f
 		var txn models.Transaction
 		var dateStr string
 		if err := rows.Scan(&txn.ID, &txn.UserID, &txn.AccountID, &txn.Type, &txn.Category, &txn.Amount, &txn.Currency,
-			&dateStr, &txn.Notes, &txn.IsRecurring, &txn.RecurringTransactionID, &txn.CreatedAt, &txn.UpdatedAt,
+			&dateStr, &txn.Notes, &txn.IsRecurring, &txn.RecurringTransactionID, &txn.GroupID, &txn.CreatedAt, &txn.UpdatedAt,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -184,10 +185,10 @@ func (r *SQLiteTransactionRepository) Update(ctx context.Context, txn *models.Tr
 	defer func() { _ = tx.Rollback() }()
 
 	result, err := tx.ExecContext(ctx,
-		`UPDATE transactions SET account_id=?, type=?, category=?, amount=?, currency=?, date=?, notes=?, is_recurring=?, recurring_transaction_id=?, updated_at=datetime('now')
+		`UPDATE transactions SET account_id=?, type=?, category=?, amount=?, currency=?, date=?, notes=?, is_recurring=?, recurring_transaction_id=?, group_id=?, updated_at=datetime('now')
 		 WHERE id=? AND user_id=? AND deleted_at IS NULL`,
 		txn.AccountID, txn.Type, txn.Category, txn.Amount, txn.Currency,
-		txn.Date.Format("2006-01-02"), txn.Notes, txn.IsRecurring, txn.RecurringTransactionID,
+		txn.Date.Format("2006-01-02"), txn.Notes, txn.IsRecurring, txn.RecurringTransactionID, txn.GroupID,
 		txn.ID, txn.UserID,
 	)
 	if err != nil {
@@ -230,6 +231,33 @@ func (r *SQLiteTransactionRepository) SoftDelete(ctx context.Context, userID, id
 		return false, err
 	}
 	return affected > 0, nil
+}
+
+func (r *SQLiteTransactionRepository) ListCategories(ctx context.Context, userID string) ([]string, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("list_categories", time.Since(start)) }()
+
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT DISTINCT category FROM transactions WHERE user_id = ? AND deleted_at IS NULL
+		 UNION
+		 SELECT DISTINCT category FROM recurring_transactions WHERE user_id = ? AND deleted_at IS NULL
+		 ORDER BY category`,
+		userID, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var categories []string
+	for rows.Next() {
+		var cat string
+		if err := rows.Scan(&cat); err != nil {
+			return nil, err
+		}
+		categories = append(categories, cat)
+	}
+	return categories, rows.Err()
 }
 
 type BulkCreateError struct {
@@ -384,6 +412,10 @@ func buildFilterWhere(userID string, filter TransactionFilter) (string, []interf
 		conditions = append(conditions, "(transactions.notes LIKE ? OR transactions.category LIKE ?)")
 		searchTerm := "%" + *filter.Search + "%"
 		args = append(args, searchTerm, searchTerm)
+	}
+	if filter.GroupID != nil {
+		conditions = append(conditions, "transactions.group_id = ?")
+		args = append(args, *filter.GroupID)
 	}
 
 	return "WHERE " + strings.Join(conditions, " AND "), args

@@ -22,7 +22,7 @@ export default function TopBar() {
       <button
         onClick={() => logoutMutation.mutate()}
         disabled={logoutMutation.isPending}
-        className="rounded-md p-2 transition-colors"
+        className="btn-icon rounded-md p-2 transition-all"
         style={{ color: "var(--color-text-secondary)" }}
         aria-label="Log out"
       >

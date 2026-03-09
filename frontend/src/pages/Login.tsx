@@ -91,7 +91,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loginMutation.isPending}
-            className="w-full rounded-md px-4 py-2 text-sm font-medium transition-all disabled:opacity-50"
+            className="btn-primary w-full rounded-md px-4 py-2 text-sm font-medium transition-all disabled:opacity-50"
             style={{
               backgroundColor: "var(--color-accent)",
               color: "var(--color-background)",

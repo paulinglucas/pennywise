@@ -527,6 +527,11 @@ type AssetResponse struct {
 // AssetType defines model for AssetType.
 type AssetType string
 
+// CategoriesResponse defines model for CategoriesResponse.
+type CategoriesResponse struct {
+	Categories []string `json:"categories"`
+}
+
 // CreateAccountRequest defines model for CreateAccountRequest.
 type CreateAccountRequest struct {
 	AccountType AccountType `json:"account_type"`
@@ -567,17 +572,24 @@ type CreateRecurringRequest struct {
 	Type           TransactionType    `json:"type"`
 }
 
+// CreateTransactionGroupRequest defines model for CreateTransactionGroupRequest.
+type CreateTransactionGroupRequest struct {
+	Members []TransactionGroupMemberInput `json:"members"`
+	Name    string                        `json:"name"`
+}
+
 // CreateTransactionRequest defines model for CreateTransactionRequest.
 type CreateTransactionRequest struct {
-	AccountId   openapi_types.UUID `json:"account_id"`
-	Amount      float32            `json:"amount"`
-	Category    string             `json:"category"`
-	Currency    *Currency          `json:"currency,omitempty"`
-	Date        openapi_types.Date `json:"date"`
-	IsRecurring *bool              `json:"is_recurring,omitempty"`
-	Notes       *string            `json:"notes,omitempty"`
-	Tags        *[]string          `json:"tags,omitempty"`
-	Type        TransactionType    `json:"type"`
+	AccountId   openapi_types.UUID  `json:"account_id"`
+	Amount      float32             `json:"amount"`
+	Category    string              `json:"category"`
+	Currency    *Currency           `json:"currency,omitempty"`
+	Date        openapi_types.Date  `json:"date"`
+	GroupId     *openapi_types.UUID `json:"group_id,omitempty"`
+	IsRecurring *bool               `json:"is_recurring,omitempty"`
+	Notes       *string             `json:"notes,omitempty"`
+	Tags        *[]string           `json:"tags,omitempty"`
+	Type        TransactionType     `json:"type"`
 }
 
 // Currency defines model for Currency.
@@ -776,6 +788,46 @@ type RecurringResponse struct {
 // Scenario defines model for Scenario.
 type Scenario string
 
+// TransactionGroupListResponse defines model for TransactionGroupListResponse.
+type TransactionGroupListResponse struct {
+	Data       []TransactionGroupResponse `json:"data"`
+	Pagination PaginationMeta             `json:"pagination"`
+}
+
+// TransactionGroupMemberInput defines model for TransactionGroupMemberInput.
+type TransactionGroupMemberInput struct {
+	AccountId openapi_types.UUID `json:"account_id"`
+	Amount    float32            `json:"amount"`
+	Category  string             `json:"category"`
+	Date      openapi_types.Date `json:"date"`
+	Notes     *string            `json:"notes,omitempty"`
+	Tags      *[]string          `json:"tags,omitempty"`
+	Type      TransactionType    `json:"type"`
+}
+
+// TransactionGroupMemberUpdate defines model for TransactionGroupMemberUpdate.
+type TransactionGroupMemberUpdate struct {
+	AccountId openapi_types.UUID  `json:"account_id"`
+	Amount    float32             `json:"amount"`
+	Category  string              `json:"category"`
+	Date      openapi_types.Date  `json:"date"`
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+	Notes     *string             `json:"notes,omitempty"`
+	Tags      *[]string           `json:"tags,omitempty"`
+	Type      TransactionType     `json:"type"`
+}
+
+// TransactionGroupResponse defines model for TransactionGroupResponse.
+type TransactionGroupResponse struct {
+	CreatedAt time.Time             `json:"created_at"`
+	Id        openapi_types.UUID    `json:"id"`
+	Members   []TransactionResponse `json:"members"`
+	Name      string                `json:"name"`
+	Total     float32               `json:"total"`
+	UpdatedAt time.Time             `json:"updated_at"`
+	UserId    openapi_types.UUID    `json:"user_id"`
+}
+
 // TransactionListResponse defines model for TransactionListResponse.
 type TransactionListResponse struct {
 	Data       []TransactionResponse `json:"data"`
@@ -790,6 +842,7 @@ type TransactionResponse struct {
 	CreatedAt              time.Time           `json:"created_at"`
 	Currency               Currency            `json:"currency"`
 	Date                   openapi_types.Date  `json:"date"`
+	GroupId                *openapi_types.UUID `json:"group_id,omitempty"`
 	Id                     openapi_types.UUID  `json:"id"`
 	IsRecurring            bool                `json:"is_recurring"`
 	Notes                  *string             `json:"notes,omitempty"`
@@ -845,6 +898,12 @@ type UpdateRecurringRequest struct {
 	Type           *TransactionType    `json:"type,omitempty"`
 }
 
+// UpdateTransactionGroupRequest defines model for UpdateTransactionGroupRequest.
+type UpdateTransactionGroupRequest struct {
+	Members *[]TransactionGroupMemberUpdate `json:"members,omitempty"`
+	Name    *string                         `json:"name,omitempty"`
+}
+
 // UpdateTransactionRequest defines model for UpdateTransactionRequest.
 type UpdateTransactionRequest struct {
 	AccountId   *openapi_types.UUID `json:"account_id,omitempty"`
@@ -852,6 +911,7 @@ type UpdateTransactionRequest struct {
 	Category    *string             `json:"category,omitempty"`
 	Currency    *Currency           `json:"currency,omitempty"`
 	Date        *openapi_types.Date `json:"date,omitempty"`
+	GroupId     *openapi_types.UUID `json:"group_id,omitempty"`
 	IsRecurring *bool               `json:"is_recurring,omitempty"`
 	Notes       *string             `json:"notes,omitempty"`
 	Tags        *[]string           `json:"tags,omitempty"`
@@ -954,6 +1014,12 @@ type ListRecurringParams struct {
 	PerPage *PerPageParam `form:"per_page,omitempty" json:"per_page,omitempty"`
 }
 
+// ListTransactionGroupsParams defines parameters for ListTransactionGroups.
+type ListTransactionGroupsParams struct {
+	Page    *PageParam    `form:"page,omitempty" json:"page,omitempty"`
+	PerPage *PerPageParam `form:"per_page,omitempty" json:"per_page,omitempty"`
+}
+
 // ListTransactionsParams defines parameters for ListTransactions.
 type ListTransactionsParams struct {
 	Page      *PageParam          `form:"page,omitempty" json:"page,omitempty"`
@@ -967,8 +1033,9 @@ type ListTransactionsParams struct {
 	AmountMax *float32            `form:"amount_max,omitempty" json:"amount_max,omitempty"`
 
 	// Tags Comma-separated tag names
-	Tags   *string `form:"tags,omitempty" json:"tags,omitempty"`
-	Search *string `form:"search,omitempty" json:"search,omitempty"`
+	Tags    *string             `form:"tags,omitempty" json:"tags,omitempty"`
+	Search  *string             `form:"search,omitempty" json:"search,omitempty"`
+	GroupId *openapi_types.UUID `form:"group_id,omitempty" json:"group_id,omitempty"`
 }
 
 // ImportTransactionsMultipartBody defines parameters for ImportTransactions.
@@ -1012,6 +1079,12 @@ type UpdateRecurringJSONRequestBody = UpdateRecurringRequest
 
 // PostVitalsJSONRequestBody defines body for PostVitals for application/json ContentType.
 type PostVitalsJSONRequestBody = VitalsRequest
+
+// CreateTransactionGroupJSONRequestBody defines body for CreateTransactionGroup for application/json ContentType.
+type CreateTransactionGroupJSONRequestBody = CreateTransactionGroupRequest
+
+// UpdateTransactionGroupJSONRequestBody defines body for UpdateTransactionGroup for application/json ContentType.
+type UpdateTransactionGroupJSONRequestBody = UpdateTransactionGroupRequest
 
 // CreateTransactionJSONRequestBody defines body for CreateTransaction for application/json ContentType.
 type CreateTransactionJSONRequestBody = CreateTransactionRequest
@@ -1075,6 +1148,9 @@ type ServerInterface interface {
 	// Get current user
 	// (GET /auth/me)
 	GetAuthMe(w http.ResponseWriter, r *http.Request)
+	// List distinct categories used by the current user
+	// (GET /categories)
+	ListCategories(w http.ResponseWriter, r *http.Request)
 	// Aggregated dashboard data
 	// (GET /dashboard)
 	GetDashboard(w http.ResponseWriter, r *http.Request, params GetDashboardParams)
@@ -1126,6 +1202,21 @@ type ServerInterface interface {
 	// Frontend Web Vitals ingestion
 	// (POST /telemetry/vitals)
 	PostVitals(w http.ResponseWriter, r *http.Request)
+	// List transaction groups for current user
+	// (GET /transaction-groups)
+	ListTransactionGroups(w http.ResponseWriter, r *http.Request, params ListTransactionGroupsParams)
+	// Create a transaction group with member transactions
+	// (POST /transaction-groups)
+	CreateTransactionGroup(w http.ResponseWriter, r *http.Request)
+	// Soft delete a transaction group and its member transactions
+	// (DELETE /transaction-groups/{id})
+	DeleteTransactionGroup(w http.ResponseWriter, r *http.Request, id IdParam)
+	// Get transaction group with members
+	// (GET /transaction-groups/{id})
+	GetTransactionGroup(w http.ResponseWriter, r *http.Request, id IdParam)
+	// Update a transaction group
+	// (PUT /transaction-groups/{id})
+	UpdateTransactionGroup(w http.ResponseWriter, r *http.Request, id IdParam)
 	// List transactions with filtering and pagination
 	// (GET /transactions)
 	ListTransactions(w http.ResponseWriter, r *http.Request, params ListTransactionsParams)
@@ -1252,6 +1343,12 @@ func (_ Unimplemented) GetAuthMe(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List distinct categories used by the current user
+// (GET /categories)
+func (_ Unimplemented) ListCategories(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Aggregated dashboard data
 // (GET /dashboard)
 func (_ Unimplemented) GetDashboard(w http.ResponseWriter, r *http.Request, params GetDashboardParams) {
@@ -1351,6 +1448,36 @@ func (_ Unimplemented) UpdateRecurring(w http.ResponseWriter, r *http.Request, i
 // Frontend Web Vitals ingestion
 // (POST /telemetry/vitals)
 func (_ Unimplemented) PostVitals(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List transaction groups for current user
+// (GET /transaction-groups)
+func (_ Unimplemented) ListTransactionGroups(w http.ResponseWriter, r *http.Request, params ListTransactionGroupsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a transaction group with member transactions
+// (POST /transaction-groups)
+func (_ Unimplemented) CreateTransactionGroup(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Soft delete a transaction group and its member transactions
+// (DELETE /transaction-groups/{id})
+func (_ Unimplemented) DeleteTransactionGroup(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get transaction group with members
+// (GET /transaction-groups/{id})
+func (_ Unimplemented) GetTransactionGroup(w http.ResponseWriter, r *http.Request, id IdParam) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update a transaction group
+// (PUT /transaction-groups/{id})
+func (_ Unimplemented) UpdateTransactionGroup(w http.ResponseWriter, r *http.Request, id IdParam) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1908,6 +2035,26 @@ func (siw *ServerInterfaceWrapper) GetAuthMe(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// ListCategories operation middleware
+func (siw *ServerInterfaceWrapper) ListCategories(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListCategories(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetDashboard operation middleware
 func (siw *ServerInterfaceWrapper) GetDashboard(w http.ResponseWriter, r *http.Request) {
 
@@ -2359,6 +2506,160 @@ func (siw *ServerInterfaceWrapper) PostVitals(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// ListTransactionGroups operation middleware
+func (siw *ServerInterfaceWrapper) ListTransactionGroups(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTransactionGroupsParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "per_page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "per_page", r.URL.Query(), &params.PerPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "per_page", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTransactionGroups(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTransactionGroup operation middleware
+func (siw *ServerInterfaceWrapper) CreateTransactionGroup(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTransactionGroup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteTransactionGroup operation middleware
+func (siw *ServerInterfaceWrapper) DeleteTransactionGroup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteTransactionGroup(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTransactionGroup operation middleware
+func (siw *ServerInterfaceWrapper) GetTransactionGroup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTransactionGroup(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateTransactionGroup operation middleware
+func (siw *ServerInterfaceWrapper) UpdateTransactionGroup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id IdParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateTransactionGroup(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListTransactions operation middleware
 func (siw *ServerInterfaceWrapper) ListTransactions(w http.ResponseWriter, r *http.Request) {
 
@@ -2458,6 +2759,14 @@ func (siw *ServerInterfaceWrapper) ListTransactions(w http.ResponseWriter, r *ht
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "search", r.URL.Query(), &params.Search, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "group_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "group_id", r.URL.Query(), &params.GroupId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group_id", Err: err})
 		return
 	}
 
@@ -2770,6 +3079,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/auth/me", wrapper.GetAuthMe)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/categories", wrapper.ListCategories)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/dashboard", wrapper.GetDashboard)
 	})
 	r.Group(func(r chi.Router) {
@@ -2819,6 +3131,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/telemetry/vitals", wrapper.PostVitals)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/transaction-groups", wrapper.ListTransactionGroups)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/transaction-groups", wrapper.CreateTransactionGroup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/transaction-groups/{id}", wrapper.DeleteTransactionGroup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/transaction-groups/{id}", wrapper.GetTransactionGroup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/transaction-groups/{id}", wrapper.UpdateTransactionGroup)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/transactions", wrapper.ListTransactions)
