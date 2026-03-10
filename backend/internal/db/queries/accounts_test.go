@@ -39,6 +39,7 @@ func seedAccount(t *testing.T, repo *queries.SQLiteAccountRepository, id, userID
 }
 
 func TestAccountCreate_And_GetByID(t *testing.T) {
+	t.Parallel()
 	database := setupAccountTestDB(t)
 	repo := queries.NewAccountRepository(database)
 
@@ -55,6 +56,7 @@ func TestAccountCreate_And_GetByID(t *testing.T) {
 }
 
 func TestAccountGetByID_NotFound(t *testing.T) {
+	t.Parallel()
 	database := setupAccountTestDB(t)
 	repo := queries.NewAccountRepository(database)
 
@@ -64,6 +66,7 @@ func TestAccountGetByID_NotFound(t *testing.T) {
 }
 
 func TestAccountGetByID_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupAccountTestDB(t)
 	repo := queries.NewAccountRepository(database)
 
@@ -75,6 +78,7 @@ func TestAccountGetByID_WrongUser(t *testing.T) {
 }
 
 func TestAccountList_FiltersByUser(t *testing.T) {
+	t.Parallel()
 	database := setupAccountTestDB(t)
 	repo := queries.NewAccountRepository(database)
 
@@ -89,6 +93,7 @@ func TestAccountList_FiltersByUser(t *testing.T) {
 }
 
 func TestAccountList_Pagination(t *testing.T) {
+	t.Parallel()
 	database := setupAccountTestDB(t)
 	repo := queries.NewAccountRepository(database)
 
@@ -111,6 +116,7 @@ func TestAccountList_Pagination(t *testing.T) {
 }
 
 func TestAccountUpdate(t *testing.T) {
+	t.Parallel()
 	database := setupAccountTestDB(t)
 	repo := queries.NewAccountRepository(database)
 
@@ -132,6 +138,7 @@ func TestAccountUpdate(t *testing.T) {
 }
 
 func TestAccountUpdate_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupAccountTestDB(t)
 	repo := queries.NewAccountRepository(database)
 
@@ -151,6 +158,7 @@ func TestAccountUpdate_WrongUser(t *testing.T) {
 }
 
 func TestAccountSoftDelete(t *testing.T) {
+	t.Parallel()
 	database := setupAccountTestDB(t)
 	repo := queries.NewAccountRepository(database)
 
@@ -166,6 +174,7 @@ func TestAccountSoftDelete(t *testing.T) {
 }
 
 func TestAccountSoftDelete_ExcludedFromList(t *testing.T) {
+	t.Parallel()
 	database := setupAccountTestDB(t)
 	repo := queries.NewAccountRepository(database)
 
@@ -184,6 +193,7 @@ func TestAccountSoftDelete_ExcludedFromList(t *testing.T) {
 }
 
 func TestAccountSoftDelete_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupAccountTestDB(t)
 	repo := queries.NewAccountRepository(database)
 

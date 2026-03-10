@@ -33,7 +33,7 @@ describe("AllocationChart", () => {
 
     const table = screen.getByRole("table", { name: "Portfolio allocation by asset type" });
     expect(table).toBeInTheDocument();
-    expect(table.className).toContain("sr-only");
+    expect((table as HTMLElement).style.overflow).toBe("hidden");
 
     const rows = screen.getAllByRole("row");
     expect(rows.length).toBe(mockAllocation.length + 1);

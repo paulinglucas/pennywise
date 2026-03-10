@@ -37,6 +37,38 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /auth/register:
+    post:
+      operationId: postAuthRegister
+      tags: [auth]
+      security: []
+      summary: Register a new user (max 2 users)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User created
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "409":
+          description: Email already taken or user limit reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /auth/logout:
     post:
       operationId: postAuthLogout
@@ -1104,6 +1136,23 @@ components:
         total_pages:
           type: integer
 
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - name
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        name:
+          type: string
+          minLength: 1
+
     LoginRequest:
       type: object
       required:
@@ -1685,6 +1734,8 @@ components:
         metadata:
           type: object
           additionalProperties: true
+        linked_account:
+          $ref: "#/components/schemas/LinkedAccountSummary"
         history:
           type: array
           items:
@@ -1695,6 +1746,25 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    LinkedAccountSummary:
+      type: object
+      required:
+        - id
+        - name
+        - account_type
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        account_type:
+          $ref: "#/components/schemas/AccountType"
+        institution:
+          type: string
+        balance:
+          type: number
 
     AssetHistoryEntry:
       type: object
@@ -2111,12 +2181,26 @@ components:
       type: object
       required:
         - net_worth
+        - net_worth_breakdown
         - cash_flow_this_month
         - spending_by_category
         - debts_summary
       properties:
         net_worth:
           type: number
+        net_worth_breakdown:
+          type: object
+          required:
+            - assets
+            - cash
+            - debt
+          properties:
+            assets:
+              type: number
+            cash:
+              type: number
+            debt:
+              type: number
         cash_flow_this_month:
           type: number
         spending_by_category:

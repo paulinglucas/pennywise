@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,6 +44,7 @@ func seedAsset(t *testing.T, repo *queries.SQLiteAssetRepository, id, userID, as
 }
 
 func TestAssetCreate_And_GetByID(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -71,6 +73,7 @@ func TestAssetCreate_And_GetByID(t *testing.T) {
 }
 
 func TestAssetCreate_CreatesHistoryEntry(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -83,6 +86,7 @@ func TestAssetCreate_CreatesHistoryEntry(t *testing.T) {
 }
 
 func TestAssetGetByID_NotFound(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -92,6 +96,7 @@ func TestAssetGetByID_NotFound(t *testing.T) {
 }
 
 func TestAssetGetByID_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -103,6 +108,7 @@ func TestAssetGetByID_WrongUser(t *testing.T) {
 }
 
 func TestAssetList_FiltersByUser(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -117,6 +123,7 @@ func TestAssetList_FiltersByUser(t *testing.T) {
 }
 
 func TestAssetList_Pagination(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -135,6 +142,7 @@ func TestAssetList_Pagination(t *testing.T) {
 }
 
 func TestAssetUpdate_ChangesValueAndCreatesHistory(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -164,6 +172,7 @@ func TestAssetUpdate_ChangesValueAndCreatesHistory(t *testing.T) {
 }
 
 func TestAssetUpdate_SameValueNoNewHistory(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -183,6 +192,7 @@ func TestAssetUpdate_SameValueNoNewHistory(t *testing.T) {
 }
 
 func TestAssetUpdate_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -201,6 +211,7 @@ func TestAssetUpdate_WrongUser(t *testing.T) {
 }
 
 func TestAssetSoftDelete(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -216,6 +227,7 @@ func TestAssetSoftDelete(t *testing.T) {
 }
 
 func TestAssetSoftDelete_ExcludedFromList(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -234,6 +246,7 @@ func TestAssetSoftDelete_ExcludedFromList(t *testing.T) {
 }
 
 func TestAssetGetHistory_NonexistentAsset(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -243,6 +256,7 @@ func TestAssetGetHistory_NonexistentAsset(t *testing.T) {
 }
 
 func TestAssetGetAllocation(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -262,6 +276,7 @@ func TestAssetGetAllocation(t *testing.T) {
 }
 
 func TestAssetGetAllocationOverTime(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -274,6 +289,7 @@ func TestAssetGetAllocationOverTime(t *testing.T) {
 }
 
 func TestAssetWithAccountID(t *testing.T) {
+	t.Parallel()
 	database := setupAssetTestDB(t)
 	repo := queries.NewAssetRepository(database)
 
@@ -306,4 +322,110 @@ func TestAssetWithAccountID(t *testing.T) {
 	require.NotNil(t, asset)
 	require.NotNil(t, asset.AccountID)
 	assert.Equal(t, "acc-test-001", *asset.AccountID)
+}
+
+func TestGetLinkedAccounts_ReturnsAccountWithDebtBalance(t *testing.T) {
+	t.Parallel()
+	database := setupAssetTestDB(t)
+	repo := queries.NewAssetRepository(database)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"acc-mortgage-001", assetTestUserID, "Home Loan", "Bank", "mortgage", "USD", 300000.0,
+	)
+	require.NoError(t, err)
+
+	_, err = database.ExecContext(context.Background(),
+		`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, linked_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"goal-mortgage-001", assetTestUserID, "Pay off mortgage", "debt_payoff", 300000, 250000, 1, "acc-mortgage-001",
+	)
+	require.NoError(t, err)
+
+	result, err := repo.GetLinkedAccounts(context.Background(), []string{"acc-mortgage-001"})
+	require.NoError(t, err)
+
+	row, ok := result["acc-mortgage-001"]
+	require.True(t, ok)
+	assert.Equal(t, "Home Loan", row.Name)
+	assert.Equal(t, "mortgage", row.AccountType)
+	assert.Equal(t, "Bank", row.Institution)
+	require.NotNil(t, row.Balance)
+	assert.Equal(t, 250000.0, *row.Balance)
+}
+
+func TestGetLinkedAccounts_NonDebtAccountHasNilBalance(t *testing.T) {
+	t.Parallel()
+	database := setupAssetTestDB(t)
+	repo := queries.NewAssetRepository(database)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency) VALUES (?, ?, ?, ?, ?, ?)`,
+		"acc-ira-001", assetTestUserID, "Roth IRA", "Fidelity", "retirement_roth_ira", "USD",
+	)
+	require.NoError(t, err)
+
+	result, err := repo.GetLinkedAccounts(context.Background(), []string{"acc-ira-001"})
+	require.NoError(t, err)
+
+	row, ok := result["acc-ira-001"]
+	require.True(t, ok)
+	assert.Equal(t, "Roth IRA", row.Name)
+	assert.Nil(t, row.Balance)
+}
+
+func TestGetLinkedAccounts_EmptyInput(t *testing.T) {
+	t.Parallel()
+	database := setupAssetTestDB(t)
+	repo := queries.NewAssetRepository(database)
+
+	result, err := repo.GetLinkedAccounts(context.Background(), []string{})
+	require.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+func TestGetLinkedAccounts_FallsBackToOriginalBalance(t *testing.T) {
+	t.Parallel()
+	database := setupAssetTestDB(t)
+	repo := queries.NewAssetRepository(database)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"acc-cc-001", assetTestUserID, "Credit Card", "Chase", "credit_card", "USD", 5000.0,
+	)
+	require.NoError(t, err)
+
+	result, err := repo.GetLinkedAccounts(context.Background(), []string{"acc-cc-001"})
+	require.NoError(t, err)
+
+	row, ok := result["acc-cc-001"]
+	require.True(t, ok)
+	require.NotNil(t, row.Balance)
+	assert.Equal(t, 5000.0, *row.Balance)
+}
+
+func TestAssetGetHistory_AnchorPoint(t *testing.T) {
+	t.Parallel()
+	database := setupAssetTestDB(t)
+	repo := queries.NewAssetRepository(database)
+
+	seedAsset(t, repo, "ast-anchor-001", assetTestUserID, "retirement", 10000)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO asset_history (id, asset_id, value, recorded_at) VALUES (?, ?, ?, ?)`,
+		"hist-old-001", "ast-anchor-001", 8000.0, "2024-06-01T00:00:00Z",
+	)
+	require.NoError(t, err)
+	_, err = database.ExecContext(context.Background(),
+		`INSERT INTO asset_history (id, asset_id, value, recorded_at) VALUES (?, ?, ?, ?)`,
+		"hist-old-002", "ast-anchor-001", 9000.0, "2025-03-01T00:00:00Z",
+	)
+	require.NoError(t, err)
+
+	since := time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC)
+	history, err := repo.GetHistory(context.Background(), assetTestUserID, "ast-anchor-001", &since)
+	require.NoError(t, err)
+
+	require.GreaterOrEqual(t, len(history), 1)
+	assert.Equal(t, 9000.0, history[0].Value)
+	assert.Equal(t, "hist-old-002", history[0].ID)
 }

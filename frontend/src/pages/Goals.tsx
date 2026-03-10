@@ -8,13 +8,16 @@ import {
   useReorderGoals,
   useCreateGoalContribution,
 } from "@/hooks/useGoals";
-import { useTransactions } from "@/hooks/useTransactions";
+import { useTransactions, useCreateTransaction } from "@/hooks/useTransactions";
+import { useAccounts } from "@/hooks/useAccounts";
+import { useCategories } from "@/hooks/useCategories";
 import type {
   GoalResponse,
   CreateGoalRequest,
   UpdateGoalRequest,
   CreateGoalContributionRequest,
 } from "@/api/client";
+import type { ContributeFormData } from "@/components/goals/ContributeForm";
 import GoalSummaryBar from "@/components/goals/GoalSummaryBar";
 import GoalList from "@/components/goals/GoalList";
 import GoalForm from "@/components/goals/GoalForm";
@@ -50,7 +53,10 @@ export default function Goals() {
   const deleteGoal = useDeleteGoal();
   const reorderGoals = useReorderGoals();
   const contributeGoal = useCreateGoalContribution();
+  const createTransaction = useCreateTransaction();
   const recentTransactions = useTransactions({ per_page: 50 });
+  const accountsQuery = useAccounts();
+  const categoriesQuery = useCategories();
 
   if (goals.isError) {
     return (
@@ -93,17 +99,47 @@ export default function Goals() {
     deleteGoal.mutate(id);
   }
 
-  function handleContribute(data: { amount: number; notes?: string; transaction_id?: string }) {
-    if (!contributeTarget) return;
+  function submitContribution(
+    goalId: string,
+    amount: number,
+    notes?: string,
+    transactionId?: string,
+  ) {
     const req: CreateGoalContributionRequest = {
-      amount: data.amount,
-      notes: data.notes,
-      transaction_id: data.transaction_id,
+      amount,
+      notes,
+      transaction_id: transactionId,
     };
-    contributeGoal.mutate(
-      { goalId: contributeTarget.id, data: req },
-      { onSuccess: () => setContributeTarget(null) },
-    );
+    contributeGoal.mutate({ goalId, data: req }, { onSuccess: () => setContributeTarget(null) });
+  }
+
+  function handleContribute(data: ContributeFormData) {
+    if (!contributeTarget) return;
+
+    if (data.create_transaction) {
+      const txnData = data.create_transaction;
+      const goalName = contributeTarget.name;
+      const txnType = "expense" as const;
+      createTransaction.mutate(
+        {
+          account_id: txnData.account_id,
+          amount: data.amount,
+          type: txnType,
+          category: txnData.category,
+          date: txnData.date,
+          notes: `${contributeTarget.goal_type === "debt_payoff" ? "Payment" : "Contribution"}: ${goalName}`,
+          tags: [],
+        },
+        {
+          onSuccess: (txn) => {
+            submitContribution(contributeTarget.id, data.amount, data.notes, txn.id);
+          },
+        },
+      );
+      return;
+    }
+
+    submitContribution(contributeTarget.id, data.amount, data.notes, data.transaction_id);
   }
 
   const addButton = (
@@ -210,8 +246,11 @@ export default function Goals() {
           <ContributeForm
             onSubmit={handleContribute}
             onCancel={() => setContributeTarget(null)}
-            isSubmitting={contributeGoal.isPending}
+            isSubmitting={contributeGoal.isPending || createTransaction.isPending}
             transactions={recentTransactions.data?.data}
+            accounts={accountsQuery.data?.data}
+            categories={categoriesQuery.data}
+            goalType={contributeTarget.goal_type}
           />
         )}
       </Modal>

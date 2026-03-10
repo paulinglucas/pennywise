@@ -10,6 +10,7 @@ import (
 )
 
 func TestPostVitals_ValidRequest(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	body := `{"metrics":[{"name":"LCP","value":2500.5},{"name":"FID","value":100},{"name":"CLS","value":0.1}]}`
@@ -22,6 +23,7 @@ func TestPostVitals_ValidRequest(t *testing.T) {
 }
 
 func TestPostVitals_NoAuthRequired(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	body := `{"metrics":[{"name":"LCP","value":1200}]}`
@@ -34,6 +36,7 @@ func TestPostVitals_NoAuthRequired(t *testing.T) {
 }
 
 func TestPostVitals_WithMetricID(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	body := `{"metrics":[{"id":"v1-abc","name":"LCP","value":1500}]}`
@@ -46,6 +49,7 @@ func TestPostVitals_WithMetricID(t *testing.T) {
 }
 
 func TestPostVitals_EmptyMetrics(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	body := `{"metrics":[]}`

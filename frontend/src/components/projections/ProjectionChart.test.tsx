@@ -108,7 +108,7 @@ describe("ProjectionChart", () => {
 
     const table = screen.getByRole("table", { name: "Net worth projection scenarios" });
     expect(table).toBeInTheDocument();
-    expect(table.className).toContain("sr-only");
+    expect((table as HTMLElement).style.overflow).toBe("hidden");
 
     const rows = screen.getAllByRole("row");
     expect(rows.length).toBe(5);

@@ -55,6 +55,7 @@ func createTestGroup(t *testing.T, router http.Handler, cookie *http.Cookie) api
 }
 
 func TestCreateTransactionGroup_ValidRequest(t *testing.T) {
+	t.Parallel()
 	router, cookie := setupGroupTests(t)
 
 	resp := createTestGroup(t, router, cookie)
@@ -66,6 +67,7 @@ func TestCreateTransactionGroup_ValidRequest(t *testing.T) {
 }
 
 func TestCreateTransactionGroup_TooFewMembers_Returns400(t *testing.T) {
+	t.Parallel()
 	router, cookie := setupGroupTests(t)
 
 	body := fmt.Sprintf(`{
@@ -83,6 +85,7 @@ func TestCreateTransactionGroup_TooFewMembers_Returns400(t *testing.T) {
 }
 
 func TestGetTransactionGroup_Found(t *testing.T) {
+	t.Parallel()
 	router, cookie := setupGroupTests(t)
 	created := createTestGroup(t, router, cookie)
 
@@ -99,6 +102,7 @@ func TestGetTransactionGroup_Found(t *testing.T) {
 }
 
 func TestGetTransactionGroup_NotFound(t *testing.T) {
+	t.Parallel()
 	router, cookie := setupGroupTests(t)
 
 	req := authedRequest(http.MethodGet, "/api/v1/transaction-groups/00000000-0000-0000-0000-000000000099", "", cookie)
@@ -109,6 +113,7 @@ func TestGetTransactionGroup_NotFound(t *testing.T) {
 }
 
 func TestListTransactionGroups(t *testing.T) {
+	t.Parallel()
 	router, cookie := setupGroupTests(t)
 	createTestGroup(t, router, cookie)
 
@@ -125,6 +130,7 @@ func TestListTransactionGroups(t *testing.T) {
 }
 
 func TestUpdateTransactionGroup_Name(t *testing.T) {
+	t.Parallel()
 	router, cookie := setupGroupTests(t)
 	created := createTestGroup(t, router, cookie)
 
@@ -142,6 +148,7 @@ func TestUpdateTransactionGroup_Name(t *testing.T) {
 }
 
 func TestUpdateTransactionGroup_WithMembers(t *testing.T) {
+	t.Parallel()
 	router, cookie := setupGroupTests(t)
 	created := createTestGroup(t, router, cookie)
 	existingMemberID := created.Members[0].Id.String()
@@ -168,6 +175,7 @@ func TestUpdateTransactionGroup_WithMembers(t *testing.T) {
 }
 
 func TestDeleteTransactionGroup(t *testing.T) {
+	t.Parallel()
 	router, cookie := setupGroupTests(t)
 	created := createTestGroup(t, router, cookie)
 
@@ -185,6 +193,7 @@ func TestDeleteTransactionGroup(t *testing.T) {
 }
 
 func TestDeleteTransactionGroup_CascadesToMembers(t *testing.T) {
+	t.Parallel()
 	router, cookie := setupGroupTests(t)
 	created := createTestGroup(t, router, cookie)
 	memberID := created.Members[0].Id.String()
@@ -201,6 +210,7 @@ func TestDeleteTransactionGroup_CascadesToMembers(t *testing.T) {
 }
 
 func TestListTransactions_FilterByGroupID(t *testing.T) {
+	t.Parallel()
 	router, cookie := setupGroupTests(t)
 	created := createTestGroup(t, router, cookie)
 
@@ -216,6 +226,7 @@ func TestListTransactions_FilterByGroupID(t *testing.T) {
 }
 
 func TestTransactionResponse_IncludesGroupID(t *testing.T) {
+	t.Parallel()
 	router, cookie := setupGroupTests(t)
 	created := createTestGroup(t, router, cookie)
 	memberID := created.Members[0].Id.String()

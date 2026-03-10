@@ -180,6 +180,22 @@ func (r *SQLiteAssetRepository) GetHistory(ctx context.Context, userID, assetID 
 		return nil, nil
 	}
 
+	var entries []models.AssetHistory
+
+	if since != nil {
+		var anchor models.AssetHistory
+		err := r.db.QueryRowContext(ctx,
+			`SELECT id, asset_id, value, recorded_at FROM asset_history
+			 WHERE asset_id = ? AND recorded_at < ? ORDER BY recorded_at DESC LIMIT 1`,
+			assetID, since.Format(time.RFC3339),
+		).Scan(&anchor.ID, &anchor.AssetID, &anchor.Value, &anchor.RecordedAt)
+		if err == nil {
+			entries = append(entries, anchor)
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
+
 	query := `SELECT id, asset_id, value, recorded_at FROM asset_history WHERE asset_id = ?`
 	args := []interface{}{assetID}
 
@@ -196,7 +212,6 @@ func (r *SQLiteAssetRepository) GetHistory(ctx context.Context, userID, assetID 
 	}
 	defer func() { _ = rows.Close() }()
 
-	var entries []models.AssetHistory
 	for rows.Next() {
 		var h models.AssetHistory
 		if err := rows.Scan(&h.ID, &h.AssetID, &h.Value, &h.RecordedAt); err != nil {
@@ -295,6 +310,61 @@ func (r *SQLiteAssetRepository) GetAllocationOverTime(ctx context.Context, userI
 		}
 	}
 	return snapshots, nil
+}
+
+type LinkedAccountRow struct {
+	AccountID   string
+	Name        string
+	AccountType string
+	Institution string
+	Balance     *float64
+}
+
+func (r *SQLiteAssetRepository) GetLinkedAccounts(ctx context.Context, accountIDs []string) (map[string]LinkedAccountRow, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("get_linked_accounts", time.Since(start)) }()
+
+	if len(accountIDs) == 0 {
+		return map[string]LinkedAccountRow{}, nil
+	}
+
+	placeholders := ""
+	args := make([]interface{}, len(accountIDs))
+	for i, id := range accountIDs {
+		if i > 0 {
+			placeholders += ", "
+		}
+		placeholders += "?"
+		args[i] = id
+	}
+
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT a.id, a.name, a.account_type, a.institution,
+		        CASE
+		          WHEN a.account_type IN ('credit_card', 'mortgage', 'credit_line')
+		          THEN COALESCE(g.current_amount, a.original_balance, 0)
+		          ELSE NULL
+		        END as balance
+		 FROM accounts a
+		 LEFT JOIN goals g ON g.linked_account_id = a.id
+		   AND g.goal_type = 'debt_payoff' AND g.deleted_at IS NULL
+		 WHERE a.id IN (`+placeholders+`) AND a.deleted_at IS NULL`,
+		args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	result := make(map[string]LinkedAccountRow)
+	for rows.Next() {
+		var row LinkedAccountRow
+		if err := rows.Scan(&row.AccountID, &row.Name, &row.AccountType, &row.Institution, &row.Balance); err != nil {
+			return nil, err
+		}
+		result[row.AccountID] = row
+	}
+	return result, rows.Err()
 }
 
 func (r *SQLiteAssetRepository) assetExists(ctx context.Context, userID, assetID string) (bool, error) {

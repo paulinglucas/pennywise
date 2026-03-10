@@ -46,6 +46,7 @@ func insertTestTransaction(t *testing.T, db *sql.DB, id, userID, accountID strin
 }
 
 func TestCreateTransaction_ValidRequest(t *testing.T) {
+	t.Parallel()
 	_, router, cookie := setupTransactionTests(t)
 
 	body := fmt.Sprintf(`{"type":"expense","category":"food","amount":42.99,"date":"2025-06-15","account_id":"%s","tags":["lunch","work"]}`, txnTestAccountID)
@@ -66,6 +67,7 @@ func TestCreateTransaction_ValidRequest(t *testing.T) {
 }
 
 func TestCreateTransaction_MissingFields_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router, cookie := setupTransactionTests(t)
 
 	body := `{"type":"expense"}`
@@ -77,6 +79,7 @@ func TestCreateTransaction_MissingFields_Returns400(t *testing.T) {
 }
 
 func TestListTransactions_WithPagination(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	for i := range 5 {
@@ -99,6 +102,7 @@ func TestListTransactions_WithPagination(t *testing.T) {
 }
 
 func TestListTransactions_FilterByCategory(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	_, err := database.ExecContext(context.Background(),
@@ -126,6 +130,7 @@ func TestListTransactions_FilterByCategory(t *testing.T) {
 }
 
 func TestGetTransaction_ReturnsDetail(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	txnID := "d0000001-0000-0000-0000-000000000001"
@@ -144,6 +149,7 @@ func TestGetTransaction_ReturnsDetail(t *testing.T) {
 }
 
 func TestGetTransaction_OtherUser_Returns404(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	_, err := database.ExecContext(context.Background(),
@@ -169,6 +175,7 @@ func TestGetTransaction_OtherUser_Returns404(t *testing.T) {
 }
 
 func TestGetTransaction_SoftDeleted_Returns404(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	txnID := "d0000003-0000-0000-0000-000000000001"
@@ -186,6 +193,7 @@ func TestGetTransaction_SoftDeleted_Returns404(t *testing.T) {
 }
 
 func TestUpdateTransaction_ValidRequest(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	txnID := "d0000004-0000-0000-0000-000000000001"
@@ -206,6 +214,7 @@ func TestUpdateTransaction_ValidRequest(t *testing.T) {
 }
 
 func TestUpdateTransaction_CreatesAuditLog(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	txnID := "d0000005-0000-0000-0000-000000000001"
@@ -227,6 +236,7 @@ func TestUpdateTransaction_CreatesAuditLog(t *testing.T) {
 }
 
 func TestDeleteTransaction_SoftDeletes(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	txnID := "d0000006-0000-0000-0000-000000000001"
@@ -247,6 +257,7 @@ func TestDeleteTransaction_SoftDeletes(t *testing.T) {
 }
 
 func TestDeleteTransaction_CreatesAuditLog(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	txnID := "d0000007-0000-0000-0000-000000000001"
@@ -267,6 +278,7 @@ func TestDeleteTransaction_CreatesAuditLog(t *testing.T) {
 }
 
 func TestImportTransactions_ValidCSV(t *testing.T) {
+	t.Parallel()
 	_, router, cookie := setupTransactionTests(t)
 
 	csvContent := "date,type,category,amount,notes\n2025-06-15,expense,food,42.99,Lunch\n2025-06-16,deposit,salary,5000.00,Paycheck\n"
@@ -301,6 +313,7 @@ func TestImportTransactions_ValidCSV(t *testing.T) {
 }
 
 func TestImportTransactions_MalformedCSV(t *testing.T) {
+	t.Parallel()
 	_, router, cookie := setupTransactionTests(t)
 
 	csvContent := "date,type,category,amount\n2025-06-15,expense,food,42.99\nbad-date,invalid,food,abc\n"
@@ -335,6 +348,7 @@ func TestImportTransactions_MalformedCSV(t *testing.T) {
 }
 
 func TestListTransactions_UserScoping(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	_, err := database.ExecContext(context.Background(),
@@ -365,6 +379,7 @@ func TestListTransactions_UserScoping(t *testing.T) {
 }
 
 func TestCreateTransaction_CreatesAuditLog(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	body := fmt.Sprintf(`{"type":"expense","category":"food","amount":10,"date":"2025-06-15","account_id":"%s"}`, txnTestAccountID)
@@ -383,6 +398,7 @@ func TestCreateTransaction_CreatesAuditLog(t *testing.T) {
 }
 
 func TestListTransactions_Search(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	_, err := database.ExecContext(context.Background(),
@@ -410,6 +426,7 @@ func TestListTransactions_Search(t *testing.T) {
 }
 
 func TestTransactionWithoutAuth_Returns401(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/transactions", nil)
@@ -420,6 +437,7 @@ func TestTransactionWithoutAuth_Returns401(t *testing.T) {
 }
 
 func TestCreateTransaction_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router, cookie := setupTransactionTests(t)
 
 	req := authedRequest(http.MethodPost, "/api/v1/transactions", "not json", cookie)
@@ -430,6 +448,7 @@ func TestCreateTransaction_InvalidJSON_Returns400(t *testing.T) {
 }
 
 func TestCreateTransaction_WithOptionalFields(t *testing.T) {
+	t.Parallel()
 	_, router, cookie := setupTransactionTests(t)
 
 	body := fmt.Sprintf(`{"type":"expense","category":"food","amount":25.50,"date":"2025-06-15","account_id":"%s","currency":"EUR","is_recurring":true,"notes":"test note"}`, txnTestAccountID)
@@ -448,6 +467,7 @@ func TestCreateTransaction_WithOptionalFields(t *testing.T) {
 }
 
 func TestUpdateTransaction_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
 	_, router, cookie := setupTransactionTests(t)
 
 	body := `{"category":"dining"}`
@@ -459,6 +479,7 @@ func TestUpdateTransaction_NotFound_Returns404(t *testing.T) {
 }
 
 func TestUpdateTransaction_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	txnID := "d1000001-0000-0000-0000-000000000001"
@@ -472,6 +493,7 @@ func TestUpdateTransaction_InvalidJSON_Returns400(t *testing.T) {
 }
 
 func TestUpdateTransaction_AllFields(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	txnID := "d1000002-0000-0000-0000-000000000001"
@@ -507,6 +529,7 @@ func TestUpdateTransaction_AllFields(t *testing.T) {
 }
 
 func TestDeleteTransaction_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
 	_, router, cookie := setupTransactionTests(t)
 
 	req := authedRequest(http.MethodDelete, "/api/v1/transactions/00000000-bbbb-0000-0000-000000000099", "", cookie)
@@ -517,6 +540,7 @@ func TestDeleteTransaction_NotFound_Returns404(t *testing.T) {
 }
 
 func TestImportTransactions_MissingAccountID(t *testing.T) {
+	t.Parallel()
 	_, router, cookie := setupTransactionTests(t)
 
 	csvContent := "date,type,category,amount\n2025-06-15,expense,food,42.99\n"
@@ -541,6 +565,7 @@ func TestImportTransactions_MissingAccountID(t *testing.T) {
 }
 
 func TestImportTransactions_MissingFile(t *testing.T) {
+	t.Parallel()
 	_, router, cookie := setupTransactionTests(t)
 
 	var buf strings.Builder
@@ -563,6 +588,7 @@ func TestImportTransactions_MissingFile(t *testing.T) {
 }
 
 func TestListTransactions_FilterByAccountID(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	secondAccountID := "a1000001-0000-0000-0000-000000000001"
@@ -597,6 +623,7 @@ func TestListTransactions_FilterByAccountID(t *testing.T) {
 }
 
 func TestListTransactions_FilterByType(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	_, err := database.ExecContext(context.Background(),
@@ -624,6 +651,7 @@ func TestListTransactions_FilterByType(t *testing.T) {
 }
 
 func TestListTransactions_FilterByDateRange(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	_, err := database.ExecContext(context.Background(),
@@ -657,6 +685,7 @@ func TestListTransactions_FilterByDateRange(t *testing.T) {
 }
 
 func TestListTransactions_FilterByAmountRange(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	_, err := database.ExecContext(context.Background(),
@@ -690,6 +719,7 @@ func TestListTransactions_FilterByAmountRange(t *testing.T) {
 }
 
 func TestListTransactions_FilterByTags(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	_, err := database.ExecContext(context.Background(),
@@ -729,6 +759,7 @@ func TestListTransactions_FilterByTags(t *testing.T) {
 }
 
 func TestGetTransaction_ReturnsRecurringTransactionId(t *testing.T) {
+	t.Parallel()
 	database, router, cookie := setupTransactionTests(t)
 
 	recurringID := "a0000099-0000-0000-0000-000000000001"
@@ -759,6 +790,7 @@ func TestGetTransaction_ReturnsRecurringTransactionId(t *testing.T) {
 }
 
 func TestListCategories_ReturnsDistinctCategories(t *testing.T) {
+	t.Parallel()
 	db, router, cookie := setupTransactionTests(t)
 
 	_, err := db.ExecContext(context.Background(),
@@ -785,6 +817,7 @@ func TestListCategories_ReturnsDistinctCategories(t *testing.T) {
 }
 
 func TestListCategories_Empty(t *testing.T) {
+	t.Parallel()
 	_, router, cookie := setupTransactionTests(t)
 
 	req := authedRequest(http.MethodGet, "/api/v1/categories", "", cookie)

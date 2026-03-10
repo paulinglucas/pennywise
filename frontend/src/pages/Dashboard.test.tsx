@@ -8,6 +8,7 @@ globalThis.fetch = mockFetch;
 
 const mockDashboardData = {
   net_worth: 150000,
+  net_worth_breakdown: { assets: 400000, cash: 5000, debt: 255000 },
   cash_flow_this_month: 2500,
   spending_by_category: [
     { category: "Food", amount: 800, percentage: 40 },
@@ -82,6 +83,7 @@ describe("Dashboard", () => {
         json: () =>
           Promise.resolve({
             net_worth: 0,
+            net_worth_breakdown: { assets: 0, cash: 0, debt: 0 },
             cash_flow_this_month: 0,
             spending_by_category: [],
             debts_summary: [],

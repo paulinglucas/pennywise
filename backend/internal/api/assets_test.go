@@ -17,6 +17,7 @@ import (
 const assetUserID = "usr00001-0000-0000-0000-000000000001"
 
 func TestCreateAsset_ValidRequest(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -37,6 +38,7 @@ func TestCreateAsset_ValidRequest(t *testing.T) {
 }
 
 func TestCreateAsset_WithMetadata(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -56,6 +58,7 @@ func TestCreateAsset_WithMetadata(t *testing.T) {
 }
 
 func TestCreateAsset_MissingFields_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -68,6 +71,7 @@ func TestCreateAsset_MissingFields_Returns400(t *testing.T) {
 }
 
 func TestListAssets_ReturnsOnlyCurrentUserAssets(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -105,6 +109,7 @@ func TestListAssets_ReturnsOnlyCurrentUserAssets(t *testing.T) {
 }
 
 func TestGetAsset_ReturnsDetailWithHistory(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -131,6 +136,7 @@ func TestGetAsset_ReturnsDetailWithHistory(t *testing.T) {
 }
 
 func TestGetAsset_OtherUser_Returns404(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -154,6 +160,7 @@ func TestGetAsset_OtherUser_Returns404(t *testing.T) {
 }
 
 func TestGetAsset_SoftDeleted_Returns404(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -171,6 +178,7 @@ func TestGetAsset_SoftDeleted_Returns404(t *testing.T) {
 }
 
 func TestUpdateAsset_ValidRequest(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -197,6 +205,7 @@ func TestUpdateAsset_ValidRequest(t *testing.T) {
 }
 
 func TestUpdateAsset_CreatesHistoryOnValueChange(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -229,6 +238,7 @@ func TestUpdateAsset_CreatesHistoryOnValueChange(t *testing.T) {
 }
 
 func TestUpdateAsset_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -241,6 +251,7 @@ func TestUpdateAsset_NotFound_Returns404(t *testing.T) {
 }
 
 func TestDeleteAsset_SoftDeletes(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -274,6 +285,7 @@ func TestDeleteAsset_SoftDeletes(t *testing.T) {
 }
 
 func TestDeleteAsset_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -285,6 +297,7 @@ func TestDeleteAsset_NotFound_Returns404(t *testing.T) {
 }
 
 func TestGetAssetHistory_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -296,6 +309,7 @@ func TestGetAssetHistory_NotFound_Returns404(t *testing.T) {
 }
 
 func TestGetAssetAllocation(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -329,6 +343,7 @@ func TestGetAssetAllocation(t *testing.T) {
 }
 
 func TestListAssets_PortfolioSummary(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -369,6 +384,7 @@ func TestListAssets_PortfolioSummary(t *testing.T) {
 }
 
 func TestCreateAsset_AuditLogEntry(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -392,6 +408,7 @@ func TestCreateAsset_AuditLogEntry(t *testing.T) {
 }
 
 func TestUpdateAsset_AuditLogEntry(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -420,6 +437,7 @@ func TestUpdateAsset_AuditLogEntry(t *testing.T) {
 }
 
 func TestDeleteAsset_AuditLogEntry(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -447,6 +465,7 @@ func TestDeleteAsset_AuditLogEntry(t *testing.T) {
 }
 
 func TestCreateAsset_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -458,6 +477,7 @@ func TestCreateAsset_InvalidJSON_Returns400(t *testing.T) {
 }
 
 func TestListAssets_Pagination(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -480,4 +500,104 @@ func TestListAssets_Pagination(t *testing.T) {
 	assert.Len(t, resp.Data, 2)
 	assert.Equal(t, 3, resp.Pagination.Total)
 	assert.Equal(t, 2, resp.Pagination.TotalPages)
+}
+
+func TestListAssets_LinkedAccountIncluded(t *testing.T) {
+	t.Parallel()
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	mortgageAccountID := "accf0001-0000-0000-0000-000000000001"
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		mortgageAccountID, assetUserID, "Rocket Mortgage", "Rocket Mortgage", "mortgage", "USD", 300000.0,
+	)
+	require.NoError(t, err)
+
+	_, err = database.ExecContext(context.Background(),
+		`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, linked_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"g1f00001-0000-0000-0000-000000000001", assetUserID, "Pay off mortgage", "debt_payoff", 300000, 280000, 1, mortgageAccountID,
+	)
+	require.NoError(t, err)
+
+	body := fmt.Sprintf(`{"name":"Home","asset_type":"real_estate","current_value":350000,"account_id":"%s"}`, mortgageAccountID)
+	createReq := authedRequest(http.MethodPost, "/api/v1/assets", body, cookie)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	req := authedRequest(http.MethodGet, "/api/v1/assets", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.AssetListResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Len(t, resp.Data, 1)
+
+	asset := resp.Data[0]
+	require.NotNil(t, asset.LinkedAccount)
+	assert.Equal(t, "Rocket Mortgage", asset.LinkedAccount.Name)
+	assert.Equal(t, api.AccountTypeMortgage, asset.LinkedAccount.AccountType)
+	require.NotNil(t, asset.LinkedAccount.Balance)
+	assert.Equal(t, float32(280000), *asset.LinkedAccount.Balance)
+	require.NotNil(t, asset.LinkedAccount.Institution)
+	assert.Equal(t, "Rocket Mortgage", *asset.LinkedAccount.Institution)
+}
+
+func TestGetAsset_LinkedAccountIncluded(t *testing.T) {
+	t.Parallel()
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	accountID := "accf0002-0000-0000-0000-000000000001"
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency) VALUES (?, ?, ?, ?, ?, ?)`,
+		accountID, assetUserID, "Fidelity Roth IRA", "Fidelity", "retirement_roth_ira", "USD",
+	)
+	require.NoError(t, err)
+
+	body := fmt.Sprintf(`{"name":"Roth IRA","asset_type":"retirement","current_value":50000,"account_id":"%s"}`, accountID)
+	createReq := authedRequest(http.MethodPost, "/api/v1/assets", body, cookie)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created api.AssetResponse
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+
+	getReq := authedRequest(http.MethodGet, fmt.Sprintf("/api/v1/assets/%s", created.Id), "", cookie)
+	getRec := httptest.NewRecorder()
+	router.ServeHTTP(getRec, getReq)
+
+	assert.Equal(t, http.StatusOK, getRec.Code)
+
+	var resp api.AssetResponse
+	require.NoError(t, json.Unmarshal(getRec.Body.Bytes(), &resp))
+	require.NotNil(t, resp.LinkedAccount)
+	assert.Equal(t, "Fidelity Roth IRA", resp.LinkedAccount.Name)
+	assert.Equal(t, api.AccountTypeRetirementRothIra, resp.LinkedAccount.AccountType)
+	assert.Nil(t, resp.LinkedAccount.Balance)
+}
+
+func TestListAssets_NoLinkedAccountWhenNotLinked(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"Standalone","asset_type":"liquid","current_value":5000}`
+	createReq := authedRequest(http.MethodPost, "/api/v1/assets", body, cookie)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	req := authedRequest(http.MethodGet, "/api/v1/assets", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	var resp api.AssetListResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Len(t, resp.Data, 1)
+	assert.Nil(t, resp.Data[0].LinkedAccount)
 }

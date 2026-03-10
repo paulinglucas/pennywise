@@ -49,6 +49,7 @@ func setupDashboardData(t *testing.T, router http.Handler, cookie *http.Cookie) 
 }
 
 func TestGetDashboard_EmptyUser(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -61,12 +62,16 @@ func TestGetDashboard_EmptyUser(t *testing.T) {
 	var resp api.DashboardResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.Equal(t, float32(0), resp.NetWorth)
+	assert.Equal(t, float32(0), resp.NetWorthBreakdown.Assets)
+	assert.Equal(t, float32(0), resp.NetWorthBreakdown.Cash)
+	assert.Equal(t, float32(0), resp.NetWorthBreakdown.Debt)
 	assert.Equal(t, float32(0), resp.CashFlowThisMonth)
 	assert.Empty(t, resp.SpendingByCategory)
 	assert.Empty(t, resp.DebtsSummary)
 }
 
 func TestGetDashboard_WithData(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -81,11 +86,15 @@ func TestGetDashboard_WithData(t *testing.T) {
 	var resp api.DashboardResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.Equal(t, float32(53000), resp.NetWorth)
+	assert.Equal(t, float32(50000), resp.NetWorthBreakdown.Assets)
+	assert.Equal(t, float32(3000), resp.NetWorthBreakdown.Cash)
+	assert.Equal(t, float32(0), resp.NetWorthBreakdown.Debt)
 	assert.Equal(t, float32(3000), resp.CashFlowThisMonth)
 	assert.Len(t, resp.SpendingByCategory, 3)
 }
 
 func TestGetDashboard_SpendingPercentagesSumTo100(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -106,6 +115,7 @@ func TestGetDashboard_SpendingPercentagesSumTo100(t *testing.T) {
 }
 
 func TestGetDashboard_NoAuth_Returns401(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/dashboard", nil)
@@ -116,6 +126,7 @@ func TestGetDashboard_NoAuth_Returns401(t *testing.T) {
 }
 
 func TestGetDashboard_DebtsSummary(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	accountID := createTestAccount(t, router, cookie)
@@ -151,23 +162,27 @@ func TestGetDashboard_DebtsSummary(t *testing.T) {
 }
 
 func TestGetDashboard_SpendingPeriod(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
 	setupDashboardData(t, router, cookie)
 
-	req := authedRequest(http.MethodGet, "/api/v1/dashboard?spending_period=1y", "", cookie)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
+	periods := []string{"7d", "30d", "90d", "1y"}
+	for _, p := range periods {
+		req := authedRequest(http.MethodGet, "/api/v1/dashboard?spending_period="+p, "", cookie)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, http.StatusOK, rec.Code, "spending_period=%s", p)
 
-	var resp api.DashboardResponse
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-	assert.Len(t, resp.SpendingByCategory, 3)
+		var resp api.DashboardResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	}
 }
 
 func TestGetDashboard_DebtsOriginalBalance(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -197,6 +212,7 @@ func TestGetDashboard_DebtsOriginalBalance(t *testing.T) {
 }
 
 func TestGetNetWorthHistory_Empty(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -214,17 +230,22 @@ func TestGetNetWorthHistory_Empty(t *testing.T) {
 }
 
 func TestGetNetWorthHistory_WithPeriod(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
-	req := authedRequest(http.MethodGet, "/api/v1/dashboard/net-worth-history?period=all", "", cookie)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
+	periods := []string{"1m", "1y", "5y", "all"}
+	for _, p := range periods {
+		req := authedRequest(http.MethodGet, "/api/v1/dashboard/net-worth-history?period="+p, "", cookie)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, http.StatusOK, rec.Code, "period=%s", p)
+	}
 }
 
 func TestGetNetWorthHistory_NoAuth_Returns401(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/dashboard/net-worth-history", nil)

@@ -21,6 +21,7 @@ func setupGroupTestDB(t *testing.T) (*queries.SQLiteTransactionGroupRepository, 
 }
 
 func TestGroupCreate_And_GetByID(t *testing.T) {
+	t.Parallel()
 	repo, _ := setupGroupTestDB(t)
 
 	group := &models.TransactionGroup{
@@ -44,6 +45,7 @@ func TestGroupCreate_And_GetByID(t *testing.T) {
 }
 
 func TestGroupGetByID_NotFound(t *testing.T) {
+	t.Parallel()
 	repo, _ := setupGroupTestDB(t)
 
 	fetched, err := repo.GetByID(context.Background(), testUserID, "nonexistent")
@@ -52,6 +54,7 @@ func TestGroupGetByID_NotFound(t *testing.T) {
 }
 
 func TestGroupGetByID_WrongUser(t *testing.T) {
+	t.Parallel()
 	repo, _ := setupGroupTestDB(t)
 
 	group := &models.TransactionGroup{
@@ -67,6 +70,7 @@ func TestGroupGetByID_WrongUser(t *testing.T) {
 }
 
 func TestGroupUpdate(t *testing.T) {
+	t.Parallel()
 	repo, _ := setupGroupTestDB(t)
 
 	group := &models.TransactionGroup{
@@ -87,6 +91,7 @@ func TestGroupUpdate(t *testing.T) {
 }
 
 func TestGroupSoftDelete(t *testing.T) {
+	t.Parallel()
 	repo, _ := setupGroupTestDB(t)
 
 	group := &models.TransactionGroup{
@@ -106,6 +111,7 @@ func TestGroupSoftDelete(t *testing.T) {
 }
 
 func TestGroupSoftDelete_WrongUser(t *testing.T) {
+	t.Parallel()
 	repo, _ := setupGroupTestDB(t)
 
 	group := &models.TransactionGroup{
@@ -121,6 +127,7 @@ func TestGroupSoftDelete_WrongUser(t *testing.T) {
 }
 
 func TestGroupList(t *testing.T) {
+	t.Parallel()
 	repo, _ := setupGroupTestDB(t)
 
 	for i := range 3 {
@@ -138,6 +145,7 @@ func TestGroupList(t *testing.T) {
 }
 
 func TestGroupList_Pagination(t *testing.T) {
+	t.Parallel()
 	repo, _ := setupGroupTestDB(t)
 
 	for i := range 5 {
@@ -159,6 +167,7 @@ func TestGroupList_Pagination(t *testing.T) {
 }
 
 func TestGroupList_UserScoped(t *testing.T) {
+	t.Parallel()
 	repo, _ := setupGroupTestDB(t)
 
 	require.NoError(t, repo.Create(context.Background(), &models.TransactionGroup{
@@ -180,6 +189,7 @@ func TestGroupList_UserScoped(t *testing.T) {
 }
 
 func TestGroupMembers(t *testing.T) {
+	t.Parallel()
 	groupRepo, txnRepo := setupGroupTestDB(t)
 
 	group := &models.TransactionGroup{
@@ -230,6 +240,7 @@ func TestGroupMembers(t *testing.T) {
 }
 
 func TestGroupSoftDelete_CascadesToMembers(t *testing.T) {
+	t.Parallel()
 	groupRepo, txnRepo := setupGroupTestDB(t)
 
 	group := &models.TransactionGroup{

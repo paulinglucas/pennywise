@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register a new user (max 2 users) */
+        post: operations["postAuthRegister"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/logout": {
         parameters: {
             query?: never;
@@ -592,6 +609,12 @@ export interface components {
             total: number;
             total_pages: number;
         };
+        RegisterRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+            name: string;
+        };
         LoginRequest: {
             /** Format: email */
             email: string;
@@ -808,11 +831,20 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             };
+            linked_account?: components["schemas"]["LinkedAccountSummary"];
             history?: components["schemas"]["AssetHistoryEntry"][];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        LinkedAccountSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            account_type: components["schemas"]["AccountType"];
+            institution?: string;
+            balance?: number;
         };
         AssetHistoryEntry: {
             /** Format: uuid */
@@ -982,6 +1014,11 @@ export interface components {
         };
         DashboardResponse: {
             net_worth: number;
+            net_worth_breakdown: {
+                assets: number;
+                cash: number;
+                debt: number;
+            };
             cash_flow_this_month: number;
             spending_by_category: {
                 category: string;
@@ -1144,6 +1181,41 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    postAuthRegister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description User created */
+            201: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            /** @description Email already taken or user limit reached */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     postAuthLogout: {

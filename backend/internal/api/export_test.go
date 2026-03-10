@@ -16,6 +16,7 @@ import (
 )
 
 func TestExportData_EmptyUser(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -38,6 +39,7 @@ func TestExportData_EmptyUser(t *testing.T) {
 }
 
 func TestExportData_WithData(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -69,6 +71,7 @@ func TestExportData_WithData(t *testing.T) {
 }
 
 func TestExportData_NoAuth_Returns401(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/export", nil)
@@ -79,6 +82,7 @@ func TestExportData_NoAuth_Returns401(t *testing.T) {
 }
 
 func TestExportCsv_Headers(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -97,6 +101,7 @@ func TestExportCsv_Headers(t *testing.T) {
 }
 
 func TestExportCsv_WithTransactions(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -129,6 +134,7 @@ func TestExportCsv_WithTransactions(t *testing.T) {
 }
 
 func TestExportCsv_WithNotesAndTags(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -161,6 +167,7 @@ func TestExportCsv_WithNotesAndTags(t *testing.T) {
 }
 
 func TestExportData_IncludesAllEntityTypes(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 

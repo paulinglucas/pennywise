@@ -12,6 +12,7 @@ import (
 )
 
 func TestAuditLogRecord(t *testing.T) {
+	t.Parallel()
 	database := setupTestDB(t)
 	repo := queries.NewAuditLogRepository(database)
 
@@ -36,6 +37,7 @@ func TestAuditLogRecord(t *testing.T) {
 }
 
 func TestAuditLogRecord_CreateAction(t *testing.T) {
+	t.Parallel()
 	database := setupTestDB(t)
 	repo := queries.NewAuditLogRepository(database)
 

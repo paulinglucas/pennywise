@@ -13,6 +13,7 @@ import (
 )
 
 func TestGetHealth_Healthy(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
@@ -31,6 +32,7 @@ func TestGetHealth_Healthy(t *testing.T) {
 }
 
 func TestGetHealth_NoAuthRequired(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)

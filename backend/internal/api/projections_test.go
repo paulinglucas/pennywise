@@ -15,6 +15,7 @@ import (
 )
 
 func TestComputeProjection_BasicScenarios(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	setupDashboardData(t, router, cookie)
@@ -41,6 +42,7 @@ func TestComputeProjection_BasicScenarios(t *testing.T) {
 }
 
 func TestComputeProjection_BestGrowsFastest(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	setupDashboardData(t, router, cookie)
@@ -64,6 +66,7 @@ func TestComputeProjection_BestGrowsFastest(t *testing.T) {
 }
 
 func TestComputeProjection_WithCustomReturnRate(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	setupDashboardData(t, router, cookie)
@@ -81,6 +84,7 @@ func TestComputeProjection_WithCustomReturnRate(t *testing.T) {
 }
 
 func TestComputeProjection_WithOneTimeEvents(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	setupDashboardData(t, router, cookie)
@@ -98,6 +102,7 @@ func TestComputeProjection_WithOneTimeEvents(t *testing.T) {
 }
 
 func TestComputeProjection_StartValueMatchesNetWorth(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	setupDashboardData(t, router, cookie)
@@ -124,6 +129,7 @@ func TestComputeProjection_StartValueMatchesNetWorth(t *testing.T) {
 }
 
 func TestComputeProjection_DebtPayoffFreedCashFlow(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	setupDashboardData(t, router, cookie)
@@ -145,6 +151,7 @@ func TestComputeProjection_DebtPayoffFreedCashFlow(t *testing.T) {
 }
 
 func TestComputeProjection_NoAuth_Returns401(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	body := `{"years_to_project":10}`
@@ -157,6 +164,7 @@ func TestComputeProjection_NoAuth_Returns401(t *testing.T) {
 }
 
 func TestComputeProjection_InvalidBody_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -169,6 +177,7 @@ func TestComputeProjection_InvalidBody_Returns400(t *testing.T) {
 }
 
 func TestComputeProjection_MissingRequiredField_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -181,6 +190,7 @@ func TestComputeProjection_MissingRequiredField_Returns400(t *testing.T) {
 }
 
 func TestComputeProjection_MillionaireDateSet(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 

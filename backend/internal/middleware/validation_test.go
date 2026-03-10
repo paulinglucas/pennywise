@@ -26,6 +26,7 @@ func setupValidationHandler(t *testing.T) http.Handler {
 }
 
 func TestValidation_InvalidBody_Returns400(t *testing.T) {
+	t.Parallel()
 	handler := setupValidationHandler(t)
 
 	body := `{"invalid": true}`
@@ -42,6 +43,7 @@ func TestValidation_InvalidBody_Returns400(t *testing.T) {
 }
 
 func TestValidation_ValidBody_PassesThrough(t *testing.T) {
+	t.Parallel()
 	handler := setupValidationHandler(t)
 
 	body := `{"name":"Test","institution":"Bank","account_type":"checking"}`
@@ -54,6 +56,7 @@ func TestValidation_ValidBody_PassesThrough(t *testing.T) {
 }
 
 func TestValidation_UnknownRoute_PassesThrough(t *testing.T) {
+	t.Parallel()
 	handler := setupValidationHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/unknown/route", nil)
@@ -64,6 +67,7 @@ func TestValidation_UnknownRoute_PassesThrough(t *testing.T) {
 }
 
 func TestValidation_ErrorResponseFormat(t *testing.T) {
+	t.Parallel()
 	handler := setupValidationHandler(t)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/accounts", bytes.NewBufferString("not json"))

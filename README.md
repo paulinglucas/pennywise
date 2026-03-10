@@ -56,6 +56,107 @@ The React frontend provides a single-page app with:
 - **API client:** Typed fetch wrapper using OpenAPI-generated types, with `ApiError` class for structured error handling
 - **State management:** TanStack Query for server state with auth-aware query caching
 
+## Production Deployment (Raspberry Pi)
+
+### Build the Docker image
+
+```bash
+docker build -t pennywise:latest .
+```
+
+Or pull a tagged release from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/paulinglucas/pennywise:latest
+```
+
+### Run with Docker
+
+```bash
+mkdir -p /opt/pennywise/data
+
+docker run -d \
+  --name pennywise \
+  --restart unless-stopped \
+  -p 80:8081 \
+  -v /opt/pennywise/data:/opt/pennywise/data \
+  --env-file /opt/pennywise/.env \
+  pennywise:latest
+```
+
+Create `/opt/pennywise/.env` with:
+
+```bash
+PENNYWISE_JWT_SECRET=<generate-a-random-64-char-string>
+PENNYWISE_DB_PATH=/opt/pennywise/data/pennywise.db
+```
+
+### Run with systemd (bare metal)
+
+```bash
+# Build the binary
+cd backend && CGO_ENABLED=0 go build -o /opt/pennywise/server cmd/server/main.go
+cd frontend && npm ci && npm run build
+cp -r dist /opt/pennywise/frontend
+
+# Create service user
+useradd -r -s /usr/sbin/nologin pennywise
+mkdir -p /opt/pennywise/data
+chown pennywise:pennywise /opt/pennywise/data
+
+# Install systemd service
+cp deploy/pennywise.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now pennywise
+```
+
+### Deploy with automatic rollback
+
+The deploy script backs up the database, launches the new container, verifies the health check, and rolls back automatically if it fails:
+
+```bash
+PENNYWISE_IMAGE=pennywise:v1.2.0 scripts/deploy.sh
+```
+
+### Database backups
+
+Run manually or via cron:
+
+```bash
+scripts/backup.sh
+```
+
+Configure via environment variables:
+
+| Variable | Default | Description |
+| -------- | ------- | ----------- |
+| `PENNYWISE_DB_PATH` | `/opt/pennywise/data/pennywise.db` | Path to SQLite database |
+| `PENNYWISE_BACKUP_DIR` | `/opt/pennywise/data/backups` | Backup output directory |
+| `PENNYWISE_MAX_BACKUPS` | `30` | Number of backups to retain |
+| `PENNYWISE_B2_BUCKET` | (empty) | Backblaze B2 bucket for cloud backup |
+
+Automate daily backups with cron:
+
+```cron
+0 2 * * * /opt/pennywise/scripts/backup.sh >> /var/log/pennywise-backup.log 2>&1
+```
+
+### Releasing new versions
+
+Tag a release to trigger the GitHub Actions release workflow:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+This builds and pushes a Docker image to GitHub Container Registry. Then deploy on the Pi:
+
+```bash
+docker pull ghcr.io/paulinglucas/pennywise:1.0.0
+PENNYWISE_IMAGE=ghcr.io/paulinglucas/pennywise:1.0.0 scripts/deploy.sh
+```
+
 ## Observability
 
 The backend exposes a `/metrics` endpoint (Prometheus format, localhost-only) and OpenTelemetry tracing. A pre-built Grafana dashboard is included at `deploy/grafana-dashboard.json`.

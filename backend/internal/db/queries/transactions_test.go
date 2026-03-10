@@ -61,6 +61,7 @@ func seedTransaction(t *testing.T, repo *queries.SQLiteTransactionRepository, id
 }
 
 func TestTransactionCreate_And_GetByID(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -96,6 +97,7 @@ func TestTransactionCreate_And_GetByID(t *testing.T) {
 }
 
 func TestTransactionGetByID_NotFound(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -105,6 +107,7 @@ func TestTransactionGetByID_NotFound(t *testing.T) {
 }
 
 func TestTransactionGetByID_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -116,6 +119,7 @@ func TestTransactionGetByID_WrongUser(t *testing.T) {
 }
 
 func TestTransactionList_FiltersByUser(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -130,6 +134,7 @@ func TestTransactionList_FiltersByUser(t *testing.T) {
 }
 
 func TestTransactionList_Pagination(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -152,6 +157,7 @@ func TestTransactionList_Pagination(t *testing.T) {
 }
 
 func TestTransactionList_FilterByCategory(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -173,6 +179,7 @@ func TestTransactionList_FilterByCategory(t *testing.T) {
 }
 
 func TestTransactionList_FilterByAccount(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -194,6 +201,7 @@ func TestTransactionList_FilterByAccount(t *testing.T) {
 }
 
 func TestTransactionList_FilterByDateRange(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -219,6 +227,7 @@ func TestTransactionList_FilterByDateRange(t *testing.T) {
 }
 
 func TestTransactionList_FilterByAmountRange(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -244,6 +253,7 @@ func TestTransactionList_FilterByAmountRange(t *testing.T) {
 }
 
 func TestTransactionList_FilterByType(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -269,6 +279,7 @@ func TestTransactionList_FilterByType(t *testing.T) {
 }
 
 func TestTransactionList_FilterByTags(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -294,6 +305,7 @@ func TestTransactionList_FilterByTags(t *testing.T) {
 }
 
 func TestTransactionList_Search(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -321,6 +333,7 @@ func TestTransactionList_Search(t *testing.T) {
 }
 
 func TestTransactionUpdate(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -343,6 +356,7 @@ func TestTransactionUpdate(t *testing.T) {
 }
 
 func TestTransactionSoftDelete(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -358,6 +372,7 @@ func TestTransactionSoftDelete(t *testing.T) {
 }
 
 func TestTransactionSoftDelete_ExcludedFromList(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -376,6 +391,7 @@ func TestTransactionSoftDelete_ExcludedFromList(t *testing.T) {
 }
 
 func TestTransactionSoftDelete_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -387,6 +403,7 @@ func TestTransactionSoftDelete_WrongUser(t *testing.T) {
 }
 
 func TestTransactionBulkCreate(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -408,6 +425,7 @@ func TestTransactionBulkCreate(t *testing.T) {
 }
 
 func TestTransactionCreate_WithTags_TagsReturned(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -424,6 +442,7 @@ func TestTransactionCreate_WithTags_TagsReturned(t *testing.T) {
 }
 
 func TestTransactionList_TagsLoadedOnListItems(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -441,6 +460,7 @@ func TestTransactionList_TagsLoadedOnListItems(t *testing.T) {
 }
 
 func TestTransactionList_PaginationBeyondRange(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -453,6 +473,7 @@ func TestTransactionList_PaginationBeyondRange(t *testing.T) {
 }
 
 func TestListCategories_Empty(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -462,6 +483,7 @@ func TestListCategories_Empty(t *testing.T) {
 }
 
 func TestListCategories_FromTransactions(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -479,6 +501,7 @@ func TestListCategories_FromTransactions(t *testing.T) {
 }
 
 func TestListCategories_IncludesRecurring(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -501,6 +524,7 @@ func TestListCategories_IncludesRecurring(t *testing.T) {
 }
 
 func TestListCategories_ExcludesDeleted(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 
@@ -523,6 +547,7 @@ func TestListCategories_ExcludesDeleted(t *testing.T) {
 }
 
 func TestListCategories_UserScoped(t *testing.T) {
+	t.Parallel()
 	database := setupTransactionTestDB(t)
 	repo := queries.NewTransactionRepository(database)
 

@@ -35,6 +35,7 @@ func withScopes(r *http.Request) *http.Request {
 }
 
 func TestAuth_ValidToken_SetsUserID(t *testing.T) {
+	t.Parallel()
 	claims := middleware.NewClaims("usr-123", "test@example.com", time.Hour)
 	tokenStr := signTestToken(claims)
 
@@ -54,6 +55,7 @@ func TestAuth_ValidToken_SetsUserID(t *testing.T) {
 }
 
 func TestAuth_MissingCookie_Returns401(t *testing.T) {
+	t.Parallel()
 	handler := middleware.Auth(testSecret, testScopesKey)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -71,6 +73,7 @@ func TestAuth_MissingCookie_Returns401(t *testing.T) {
 }
 
 func TestAuth_ExpiredToken_Returns401(t *testing.T) {
+	t.Parallel()
 	claims := &middleware.Claims{
 		UserID: "usr-123",
 		Email:  "test@example.com",
@@ -95,6 +98,7 @@ func TestAuth_ExpiredToken_Returns401(t *testing.T) {
 }
 
 func TestAuth_MalformedToken_Returns401(t *testing.T) {
+	t.Parallel()
 	handler := middleware.Auth(testSecret, testScopesKey)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -108,6 +112,7 @@ func TestAuth_MalformedToken_Returns401(t *testing.T) {
 }
 
 func TestAuth_WrongSecret_Returns401(t *testing.T) {
+	t.Parallel()
 	claims := middleware.NewClaims("usr-123", "test@example.com", time.Hour)
 	tokenStr := signTestToken(claims)
 
@@ -125,6 +130,7 @@ func TestAuth_WrongSecret_Returns401(t *testing.T) {
 }
 
 func TestAuth_NoScopes_PassesThrough(t *testing.T) {
+	t.Parallel()
 	handler := middleware.Auth(testSecret, testScopesKey)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -137,6 +143,7 @@ func TestAuth_NoScopes_PassesThrough(t *testing.T) {
 }
 
 func TestSignToken_ReturnsValidToken(t *testing.T) {
+	t.Parallel()
 	claims := middleware.NewClaims("usr-456", "user@example.com", time.Hour)
 
 	tokenStr, err := middleware.SignToken(claims, testSecret)
@@ -145,6 +152,7 @@ func TestSignToken_ReturnsValidToken(t *testing.T) {
 }
 
 func TestNewClaims_SetsFields(t *testing.T) {
+	t.Parallel()
 	claims := middleware.NewClaims("usr-789", "user@example.com", 24*time.Hour)
 
 	assert.Equal(t, "usr-789", claims.UserID)
@@ -155,6 +163,7 @@ func TestNewClaims_SetsFields(t *testing.T) {
 }
 
 func TestWithUserID_And_GetUserID(t *testing.T) {
+	t.Parallel()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	ctx := middleware.WithUserID(req.Context(), "usr-test")
 

@@ -30,6 +30,7 @@ func setupDashboardTestDB(t *testing.T) (*queries.DashboardRepository, func(sql 
 }
 
 func TestGetNetWorth_NoData(t *testing.T) {
+	t.Parallel()
 	repo, _ := setupDashboardTestDB(t)
 
 	result, err := repo.GetNetWorth(context.Background(), dashboardUserID)
@@ -40,6 +41,7 @@ func TestGetNetWorth_NoData(t *testing.T) {
 }
 
 func TestGetNetWorth_WithCashAccounts(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -55,6 +57,7 @@ func TestGetNetWorth_WithCashAccounts(t *testing.T) {
 }
 
 func TestGetNetWorth_WithAssets(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -68,13 +71,17 @@ func TestGetNetWorth_WithAssets(t *testing.T) {
 }
 
 func TestGetNetWorth_WithDebts(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
 		"ast00001-0000-0000-0000-000000000001", dashboardUserID, "Brokerage", "brokerage", 100000, "USD")
 
-	exec(`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"goal0001-0000-0000-0000-000000000001", dashboardUserID, "Mortgage Payoff", "debt_payoff", 200000, 150000, 1)
+	exec(`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"acct0002-0000-0000-0000-000000000002", dashboardUserID, "Mortgage", "Bank", "mortgage", "USD", 200000)
+
+	exec(`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, linked_account_id, priority_rank) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"goal0001-0000-0000-0000-000000000001", dashboardUserID, "Mortgage Payoff", "debt_payoff", 200000, 150000, "acct0002-0000-0000-0000-000000000002", 1)
 
 	result, err := repo.GetNetWorth(context.Background(), dashboardUserID)
 	require.NoError(t, err)
@@ -82,7 +89,20 @@ func TestGetNetWorth_WithDebts(t *testing.T) {
 	assert.Equal(t, 150000.0, result.DebtTotal)
 }
 
+func TestGetNetWorth_DebtAccountWithoutGoal(t *testing.T) {
+	t.Parallel()
+	repo, exec := setupDashboardTestDB(t)
+
+	exec(`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"acct0003-0000-0000-0000-000000000003", dashboardUserID, "Credit Card", "Bank", "credit_card", "USD", 5000)
+
+	result, err := repo.GetNetWorth(context.Background(), dashboardUserID)
+	require.NoError(t, err)
+	assert.Equal(t, 5000.0, result.DebtTotal)
+}
+
 func TestGetNetWorth_ExcludesSoftDeleted(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -96,6 +116,7 @@ func TestGetNetWorth_ExcludesSoftDeleted(t *testing.T) {
 }
 
 func TestGetCashFlowThisMonth(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
 
@@ -115,6 +136,7 @@ func TestGetCashFlowThisMonth(t *testing.T) {
 }
 
 func TestGetCashFlowThisMonth_ExcludesPreviousMonth(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
 
@@ -128,6 +150,7 @@ func TestGetCashFlowThisMonth_ExcludesPreviousMonth(t *testing.T) {
 }
 
 func TestGetSpendingByCategory(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	until := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
@@ -155,6 +178,7 @@ func TestGetSpendingByCategory(t *testing.T) {
 }
 
 func TestGetSpendingByCategory_Empty(t *testing.T) {
+	t.Parallel()
 	repo, _ := setupDashboardTestDB(t)
 	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	until := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
@@ -165,6 +189,7 @@ func TestGetSpendingByCategory_Empty(t *testing.T) {
 }
 
 func TestGetDebtsSummary_OriginalBalance(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
 
@@ -182,6 +207,7 @@ func TestGetDebtsSummary_OriginalBalance(t *testing.T) {
 }
 
 func TestGetDebtsSummary(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
 
@@ -204,6 +230,7 @@ func TestGetDebtsSummary(t *testing.T) {
 }
 
 func TestGetDebtsSummary_ExcludesNonDebtAccounts(t *testing.T) {
+	t.Parallel()
 	repo, _ := setupDashboardTestDB(t)
 	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
 
@@ -213,6 +240,7 @@ func TestGetDebtsSummary_ExcludesNonDebtAccounts(t *testing.T) {
 }
 
 func TestGetNetWorthHistory(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -238,6 +266,7 @@ func TestGetNetWorthHistory(t *testing.T) {
 }
 
 func TestGetNetWorthHistory_MultipleAssetsSameDate(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -265,6 +294,7 @@ func TestGetNetWorthHistory_MultipleAssetsSameDate(t *testing.T) {
 }
 
 func TestGetNetWorthHistory_IncludesCashAndDebts(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -285,8 +315,11 @@ func TestGetNetWorthHistory_IncludesCashAndDebts(t *testing.T) {
 		"txn00003-0000-0000-0000-000000000003", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
 		"expense", "food", 1000, "USD", "2026-01-20")
 
-	exec(`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"goal0001-0000-0000-0000-000000000001", dashboardUserID, "Mortgage", "debt_payoff", 300000, 200000, 1, "2025-01-01")
+	exec(`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"acct0002-0000-0000-0000-000000000002", dashboardUserID, "Mortgage", "Bank", "mortgage", "USD", 300000, "2025-01-01")
+
+	exec(`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, linked_account_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"goal0001-0000-0000-0000-000000000001", dashboardUserID, "Mortgage", "debt_payoff", 300000, 200000, 1, "acct0002-0000-0000-0000-000000000002", "2025-01-01")
 
 	since := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	points, err := repo.GetNetWorthHistory(context.Background(), dashboardUserID, since, true)
@@ -298,7 +331,8 @@ func TestGetNetWorthHistory_IncludesCashAndDebts(t *testing.T) {
 	assert.Equal(t, 104000.0, points[3].Value)
 }
 
-func TestGetNetWorthHistory_DebtFilteredByCreatedAt(t *testing.T) {
+func TestGetNetWorthHistory_DebtConsistentAcrossAllDates(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -309,18 +343,22 @@ func TestGetNetWorthHistory_DebtFilteredByCreatedAt(t *testing.T) {
 	exec(`INSERT INTO asset_history (id, asset_id, value, recorded_at) VALUES (?, ?, ?, ?)`,
 		"ah000002-0000-0000-0000-000000000002", "ast00001-0000-0000-0000-000000000001", 18000, "2025-07-01")
 
-	exec(`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"goal0001-0000-0000-0000-000000000001", dashboardUserID, "Car loan", "debt_payoff", 10000, 5000, 1, "2025-06-01")
+	exec(`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"acct0002-0000-0000-0000-000000000002", dashboardUserID, "Car Loan", "Bank", "credit_line", "USD", 10000, "2025-06-01")
+
+	exec(`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, linked_account_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"goal0001-0000-0000-0000-000000000001", dashboardUserID, "Car loan", "debt_payoff", 10000, 5000, 1, "acct0002-0000-0000-0000-000000000002", "2025-06-01")
 
 	since := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	points, err := repo.GetNetWorthHistory(context.Background(), dashboardUserID, since, true)
 	require.NoError(t, err)
 
-	assert.Equal(t, 15000.0, points[0].Value)
+	assert.Equal(t, 10000.0, points[0].Value)
 	assert.Equal(t, 13000.0, points[1].Value)
 }
 
 func TestGetNetWorthHistory_AnchorPoint(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -341,6 +379,7 @@ func TestGetNetWorthHistory_AnchorPoint(t *testing.T) {
 }
 
 func TestGetNetWorthHistory_AlwaysIncludesToday(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -360,6 +399,7 @@ func TestGetNetWorthHistory_AlwaysIncludesToday(t *testing.T) {
 }
 
 func TestGetNetWorth_TransferReducesCash(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -375,6 +415,7 @@ func TestGetNetWorth_TransferReducesCash(t *testing.T) {
 }
 
 func TestGetCashFlowThisMonth_ExcludesTransfers(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
 
@@ -394,6 +435,7 @@ func TestGetCashFlowThisMonth_ExcludesTransfers(t *testing.T) {
 }
 
 func TestGetSpendingByCategory_ExcludesTransfers(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	until := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
@@ -413,6 +455,7 @@ func TestGetSpendingByCategory_ExcludesTransfers(t *testing.T) {
 }
 
 func TestGetNetWorthHistory_TransferReducesCash(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -440,6 +483,7 @@ func TestGetNetWorthHistory_TransferReducesCash(t *testing.T) {
 }
 
 func TestGetDebtsSummary_TransferCountsAsPayment(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
 
@@ -463,6 +507,7 @@ func TestGetDebtsSummary_TransferCountsAsPayment(t *testing.T) {
 }
 
 func TestGetNetWorthHistory_PerAssetCarryForward(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -495,6 +540,7 @@ func TestGetNetWorthHistory_PerAssetCarryForward(t *testing.T) {
 }
 
 func TestGetNetWorthHistory_TransactionDatesCreateDataPoints(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -529,6 +575,7 @@ func TestGetNetWorthHistory_TransactionDatesCreateDataPoints(t *testing.T) {
 }
 
 func TestGetNetWorthHistory_CreditCardExpensesNotInCash(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO accounts (id, user_id, name, institution, account_type, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -553,6 +600,7 @@ func TestGetNetWorthHistory_CreditCardExpensesNotInCash(t *testing.T) {
 }
 
 func TestGetSpendingByCategory_IncludesCreditCardExpenses(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	until := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
@@ -575,6 +623,7 @@ func TestGetSpendingByCategory_IncludesCreditCardExpenses(t *testing.T) {
 }
 
 func TestGetNetWorthHistory_MultipleAssetsWithDifferentSnapshotFrequencies(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -607,6 +656,7 @@ func TestGetNetWorthHistory_MultipleAssetsWithDifferentSnapshotFrequencies(t *te
 }
 
 func TestGetNetWorthHistory_TransferAndExpenseCombined(t *testing.T) {
+	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -635,6 +685,7 @@ func TestGetNetWorthHistory_TransferAndExpenseCombined(t *testing.T) {
 }
 
 func TestPingDB(t *testing.T) {
+	t.Parallel()
 	repo, _ := setupDashboardTestDB(t)
 
 	err := repo.PingDB(context.Background())

@@ -75,7 +75,7 @@ describe("SpendingBreakdown", () => {
 
     const table = screen.getByRole("table", { name: "Spending breakdown by category" });
     expect(table).toBeInTheDocument();
-    expect(table.className).toContain("sr-only");
+    expect(table.style.overflow).toBe("hidden");
 
     const rows = screen.getAllByRole("row");
     expect(rows.length).toBe(mockCategories.length + 1);

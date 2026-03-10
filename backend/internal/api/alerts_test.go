@@ -17,6 +17,7 @@ import (
 const testUserID = "usr00001-0000-0000-0000-000000000001"
 
 func TestListAlerts_Empty(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -33,6 +34,7 @@ func TestListAlerts_Empty(t *testing.T) {
 }
 
 func TestListAlerts_ReturnsUnreadOnly(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -61,6 +63,7 @@ func TestListAlerts_ReturnsUnreadOnly(t *testing.T) {
 }
 
 func TestListAlerts_UserScoping(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -88,6 +91,7 @@ func TestListAlerts_UserScoping(t *testing.T) {
 }
 
 func TestMarkAlertRead_Success(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -113,6 +117,7 @@ func TestMarkAlertRead_Success(t *testing.T) {
 }
 
 func TestMarkAlertRead_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -124,6 +129,7 @@ func TestMarkAlertRead_NotFound_Returns404(t *testing.T) {
 }
 
 func TestListAlerts_WithRelatedEntity(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -149,6 +155,7 @@ func TestListAlerts_WithRelatedEntity(t *testing.T) {
 }
 
 func TestListAlerts_Pagination(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -174,6 +181,7 @@ func TestListAlerts_Pagination(t *testing.T) {
 }
 
 func TestListAlerts_NoAuth_Returns401(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/alerts", nil)

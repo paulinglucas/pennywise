@@ -12,6 +12,7 @@ import (
 )
 
 func TestRequestID_SetsHeader(t *testing.T) {
+	t.Parallel()
 	handler := middleware.RequestID(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -25,6 +26,7 @@ func TestRequestID_SetsHeader(t *testing.T) {
 }
 
 func TestRequestID_UniquePerRequest(t *testing.T) {
+	t.Parallel()
 	handler := middleware.RequestID(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -41,6 +43,7 @@ func TestRequestID_UniquePerRequest(t *testing.T) {
 }
 
 func TestRequestID_AvailableInContext(t *testing.T) {
+	t.Parallel()
 	var capturedID string
 	handler := middleware.RequestID(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedID = middleware.GetRequestID(r.Context())
@@ -56,6 +59,7 @@ func TestRequestID_AvailableInContext(t *testing.T) {
 }
 
 func TestGetRequestID_EmptyWithoutMiddleware(t *testing.T) {
+	t.Parallel()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	id := middleware.GetRequestID(req.Context())
 	assert.Empty(t, id)
