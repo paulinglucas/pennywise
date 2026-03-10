@@ -65,6 +65,53 @@ export function UploadArea({
         onChange={onFileChange}
         data-testid="csv-file-input"
       />
+      <CsvFormatHelp />
+    </div>
+  );
+}
+
+function CsvFormatHelp() {
+  return (
+    <div
+      className="mt-2 w-full rounded-md px-4 py-3 text-xs"
+      style={{
+        backgroundColor: "var(--color-background)",
+        border: "1px solid var(--color-border)",
+        color: "var(--color-text-secondary)",
+      }}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <p className="mb-2 font-medium" style={{ color: "var(--color-text-primary)" }}>
+        Expected CSV format
+      </p>
+      <p className="mb-1">
+        Required columns: <span style={{ color: "var(--color-text-primary)" }}>date</span>,{" "}
+        <span style={{ color: "var(--color-text-primary)" }}>amount</span>,{" "}
+        <span style={{ color: "var(--color-text-primary)" }}>type</span>,{" "}
+        <span style={{ color: "var(--color-text-primary)" }}>category</span>
+      </p>
+      <p className="mb-2">
+        Optional columns: <span style={{ color: "var(--color-text-primary)" }}>notes</span>,{" "}
+        <span style={{ color: "var(--color-text-primary)" }}>currency</span>
+      </p>
+      <pre
+        className="overflow-x-auto rounded px-3 py-2 font-mono"
+        style={{
+          backgroundColor: "var(--color-surface)",
+          color: "var(--color-text-primary)",
+        }}
+      >
+        {[
+          "date,amount,type,category,notes",
+          "2026-01-15,42.50,expense,food,Lunch",
+          "2026-01-16,2500.00,deposit,salary,January pay",
+        ].join("\n")}
+      </pre>
+      <p className="mt-2">
+        Dates must be <span style={{ color: "var(--color-text-primary)" }}>YYYY-MM-DD</span>. Type
+        must be <span style={{ color: "var(--color-text-primary)" }}>expense</span> or{" "}
+        <span style={{ color: "var(--color-text-primary)" }}>deposit</span>.
+      </p>
     </div>
   );
 }

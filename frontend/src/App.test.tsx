@@ -42,6 +42,13 @@ describe("App routing", () => {
     });
   });
 
+  it("shows loading skeleton during auth check", () => {
+    mockFetch.mockReturnValue(new Promise(() => {}));
+    renderApp();
+    const skeletons = document.querySelectorAll(".animate-pulse");
+    expect(skeletons.length).toBeGreaterThan(0);
+  });
+
   it("shows dashboard when authenticated", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

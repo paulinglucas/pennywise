@@ -15,6 +15,7 @@ import AssetCard from "@/components/assets/AssetCard";
 import AssetForm from "@/components/assets/AssetForm";
 import Modal from "@/components/shared/Modal";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState, { extractRequestId } from "@/components/shared/ErrorState";
 import { SkeletonCard, SkeletonChart } from "@/components/shared/Skeleton";
 
 type FormMode = { kind: "closed" } | { kind: "create" } | { kind: "edit"; asset: AssetResponse };
@@ -47,25 +48,11 @@ export default function Assets() {
 
   if (assets.isError) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <h2 className="mb-2 text-lg font-semibold" style={{ color: "var(--color-text-primary)" }}>
-          Something went wrong
-        </h2>
-        <p className="mb-6 max-w-sm text-sm" style={{ color: "var(--color-text-secondary)" }}>
-          Could not load your assets. Please try again.
-        </p>
-        <button
-          onClick={() => assets.refetch()}
-          className="btn-primary rounded-md px-4 py-2 text-sm font-medium transition-all"
-          style={{
-            backgroundColor: "var(--color-accent)",
-            color: "var(--color-background)",
-            boxShadow: "var(--glow-accent)",
-          }}
-        >
-          Retry
-        </button>
-      </div>
+      <ErrorState
+        message="Could not load your assets. Please try again."
+        onRetry={() => assets.refetch()}
+        requestId={extractRequestId(assets.error)}
+      />
     );
   }
 

@@ -135,6 +135,7 @@ export default function AssetCard({ asset, portfolioTotal, onClick }: AssetCardP
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onClick();
       }}
+      aria-label={`${asset.name}, ${formatCurrency(asset.current_value)}`}
       className="cursor-pointer rounded-lg p-5 transition-all"
       style={{
         backgroundColor: "var(--color-surface)",

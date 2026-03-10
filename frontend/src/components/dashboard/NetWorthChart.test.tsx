@@ -50,4 +50,15 @@ describe("NetWorthChart", () => {
 
     expect(screen.getByText("No data available for this period")).toBeInTheDocument();
   });
+
+  it("renders a screen-reader data table with net worth values", () => {
+    render(<NetWorthChart dataPoints={mockDataPoints} period="1y" onPeriodChange={() => {}} />);
+
+    const table = screen.getByRole("table", { name: "Net worth over time" });
+    expect(table).toBeInTheDocument();
+    expect(table.className).toContain("sr-only");
+
+    const rows = screen.getAllByRole("row");
+    expect(rows.length).toBe(mockDataPoints.length + 1);
+  });
 });

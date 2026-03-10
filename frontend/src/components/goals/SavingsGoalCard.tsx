@@ -36,6 +36,7 @@ export default function SavingsGoalCard({ goal, onClick, onContribute }: Savings
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onClick();
       }}
+      aria-label={`${goal.name}, ${formatCurrency(goal.current_amount)} of ${formatCurrency(goal.target_amount)}`}
       className="cursor-pointer rounded-lg p-5 transition-all"
       style={{
         backgroundColor: "var(--color-surface)",

@@ -7,7 +7,7 @@ import {
   Tooltip,
   ReferenceLine,
 } from "recharts";
-import { formatCurrency } from "@/utils/formatting";
+import { formatCurrency, formatDate } from "@/utils/formatting";
 import type { ProjectionResponse, Scenario } from "@/api/client";
 
 interface ProjectionChartProps {
@@ -221,30 +221,53 @@ export default function ProjectionChart({ data }: ProjectionChartProps) {
         </h3>
         <Legend />
       </div>
-      <ResponsiveContainer width="100%" height={350}>
-        <LineChart data={merged}>
-          <XAxis
-            dataKey="timestamp"
-            type="number"
-            scale="time"
-            domain={["dataMin", "dataMax"]}
-            tickFormatter={formatAxisDate}
-            tick={{ fill: "var(--color-text-secondary)", fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tickFormatter={formatAxisValue}
-            tick={{ fill: "var(--color-text-secondary)", fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-            width={70}
-          />
-          <Tooltip content={<ChartTooltip />} />
-          <MilestoneLines milestones={milestones} />
-          <ScenarioLines />
-        </LineChart>
-      </ResponsiveContainer>
+      <div aria-hidden="true">
+        <ResponsiveContainer width="100%" height={350}>
+          <LineChart data={merged}>
+            <XAxis
+              dataKey="timestamp"
+              type="number"
+              scale="time"
+              domain={["dataMin", "dataMax"]}
+              tickFormatter={formatAxisDate}
+              tick={{ fill: "var(--color-text-secondary)", fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tickFormatter={formatAxisValue}
+              tick={{ fill: "var(--color-text-secondary)", fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              width={70}
+            />
+            <Tooltip content={<ChartTooltip />} />
+            <MilestoneLines milestones={milestones} />
+            <ScenarioLines />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <table className="sr-only">
+        <caption>Net worth projection scenarios</caption>
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Best Case</th>
+            <th scope="col">Average</th>
+            <th scope="col">Worst Case</th>
+          </tr>
+        </thead>
+        <tbody>
+          {merged.map((point) => (
+            <tr key={point.date}>
+              <td>{formatDate(point.date)}</td>
+              <td>{point.best !== undefined ? formatCurrency(point.best) : ""}</td>
+              <td>{point.average !== undefined ? formatCurrency(point.average) : ""}</td>
+              <td>{point.worst !== undefined ? formatCurrency(point.worst) : ""}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

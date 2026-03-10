@@ -45,6 +45,21 @@ describe("AppShell", () => {
     }
   });
 
+  it("renders skip-to-content link", () => {
+    renderWithProviders(
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route index element={<div>Page</div>} />
+        </Route>
+      </Routes>,
+    );
+
+    const skipLink = screen.getByText("Skip to content");
+    expect(skipLink).toBeInTheDocument();
+    expect(skipLink).toHaveAttribute("href", "#main-content");
+    expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+  });
+
   it("renders logout button", () => {
     renderWithProviders(
       <Routes>

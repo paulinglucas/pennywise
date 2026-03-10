@@ -7,7 +7,8 @@
 
 INSERT INTO users (id, email, name, password_hash) VALUES
 ('00a00001-0000-0000-0000-000000000001', 'james@example.com', 'James', '$2a$10$P0QW8xm0emvIqNtQAUbupehkahGR5e2fLSWIKjIIb.4sAA5xvQDNi'),
-('00a00002-0000-0000-0000-000000000002', 'alex@example.com', 'Alex', '$2a$10$P0QW8xm0emvIqNtQAUbupehkahGR5e2fLSWIKjIIb.4sAA5xvQDNi');
+('00a00002-0000-0000-0000-000000000002', 'alex@example.com', 'Alex', '$2a$10$P0QW8xm0emvIqNtQAUbupehkahGR5e2fLSWIKjIIb.4sAA5xvQDNi'),
+('00a00003-0000-0000-0000-000000000003', 'empty@example.com', 'Empty User', '$2a$10$P0QW8xm0emvIqNtQAUbupehkahGR5e2fLSWIKjIIb.4sAA5xvQDNi');
 
 -- ============================================================
 -- Accounts (James: 14 accounts, Alex: 2 accounts)

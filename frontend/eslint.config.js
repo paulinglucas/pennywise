@@ -38,6 +38,7 @@ export default [
         RequestInit: "readonly",
         React: "readonly",
         ResizeObserver: "readonly",
+        HTMLElement: "readonly",
         HTMLDivElement: "readonly",
         HTMLInputElement: "readonly",
         HTMLSelectElement: "readonly",

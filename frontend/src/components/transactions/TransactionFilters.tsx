@@ -38,6 +38,7 @@ export default function TransactionFilters({
           value={filters.search ?? ""}
           onChange={(event) => updateFilter("search", event.target.value)}
           placeholder="Search transactions..."
+          aria-label="Search transactions"
           className="form-input w-full rounded-md border py-2 pl-9 pr-3 text-sm transition-shadow"
           style={selectStyle}
         />

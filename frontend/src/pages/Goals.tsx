@@ -21,6 +21,7 @@ import GoalForm from "@/components/goals/GoalForm";
 import ContributeForm from "@/components/goals/ContributeForm";
 import Modal from "@/components/shared/Modal";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState, { extractRequestId } from "@/components/shared/ErrorState";
 import { SkeletonCard } from "@/components/shared/Skeleton";
 
 type FormMode = { kind: "closed" } | { kind: "create" } | { kind: "edit"; goal: GoalResponse };
@@ -53,25 +54,11 @@ export default function Goals() {
 
   if (goals.isError) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <h2 className="mb-2 text-lg font-semibold" style={{ color: "var(--color-text-primary)" }}>
-          Something went wrong
-        </h2>
-        <p className="mb-6 max-w-sm text-sm" style={{ color: "var(--color-text-secondary)" }}>
-          Could not load your goals. Please try again.
-        </p>
-        <button
-          onClick={() => goals.refetch()}
-          className="btn-primary rounded-md px-4 py-2 text-sm font-medium transition-all"
-          style={{
-            backgroundColor: "var(--color-accent)",
-            color: "var(--color-background)",
-            boxShadow: "var(--glow-accent)",
-          }}
-        >
-          Retry
-        </button>
-      </div>
+      <ErrorState
+        message="Could not load your goals. Please try again."
+        onRetry={() => goals.refetch()}
+        requestId={extractRequestId(goals.error)}
+      />
     );
   }
 
@@ -163,7 +150,7 @@ export default function Goals() {
         {header}
         <EmptyState
           title="No goals yet"
-          description="Set savings targets and debt payoff goals to track your progress."
+          description="Set your first financial goal. What are you working toward?"
         />
         {createModal}
       </div>
