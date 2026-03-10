@@ -25,18 +25,18 @@ describe("SpendingBreakdown", () => {
   it("renders category names and amounts", () => {
     render(<SpendingBreakdown {...defaultProps} />);
 
-    expect(screen.getByText("Food")).toBeInTheDocument();
-    expect(screen.getByText("$800.00")).toBeInTheDocument();
-    expect(screen.getByText("Housing")).toBeInTheDocument();
-    expect(screen.getByText("Transport")).toBeInTheDocument();
+    expect(screen.getAllByText("Food").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("$800.00").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Housing").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Transport").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders percentages", () => {
     render(<SpendingBreakdown {...defaultProps} />);
 
-    expect(screen.getByText("40.0%")).toBeInTheDocument();
-    expect(screen.getByText("50.0%")).toBeInTheDocument();
-    expect(screen.getByText("10.0%")).toBeInTheDocument();
+    expect(screen.getAllByText("40.0%").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("50.0%").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("10.0%").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders total spent amount", () => {
@@ -68,5 +68,16 @@ describe("SpendingBreakdown", () => {
     await userEvent.click(screen.getByText("7D"));
 
     expect(onPeriodChange).toHaveBeenCalledWith("7d");
+  });
+
+  it("renders a screen-reader data table with category details", () => {
+    render(<SpendingBreakdown {...defaultProps} />);
+
+    const table = screen.getByRole("table", { name: "Spending breakdown by category" });
+    expect(table).toBeInTheDocument();
+    expect(table.className).toContain("sr-only");
+
+    const rows = screen.getAllByRole("row");
+    expect(rows.length).toBe(mockCategories.length + 1);
   });
 });

@@ -46,6 +46,13 @@ describe("DebtGoalCard", () => {
     expect(screen.getByText("$280.00")).toBeInTheDocument();
   });
 
+  it("has accessible aria-label with name and remaining amount", () => {
+    renderWithProviders(<DebtGoalCard goal={debtGoal} onClick={vi.fn()} onContribute={vi.fn()} />);
+    expect(
+      screen.getByRole("button", { name: /Pay off car loan, \$4,200\.00 remaining/ }),
+    ).toBeInTheDocument();
+  });
+
   it("calls onClick when clicked", () => {
     const onClick = vi.fn();
     renderWithProviders(<DebtGoalCard goal={debtGoal} onClick={onClick} onContribute={vi.fn()} />);

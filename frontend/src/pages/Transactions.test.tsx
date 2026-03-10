@@ -117,4 +117,86 @@ describe("Transactions", () => {
     renderWithProviders(<Transactions />);
     expect(screen.getByTestId("transactions-skeleton")).toBeInTheDocument();
   });
+
+  it("shows error state with retry on API failure", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : (input as Request).url;
+
+      if (url.includes("/api/v1/transactions")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: {
+                code: "INTERNAL_ERROR",
+                message: "Server error",
+                request_id: "req-txn-456",
+              },
+            }),
+            { status: 500, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      if (url.includes("/api/v1/accounts")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(mockAccountsResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      return Promise.resolve(new Response("Not found", { status: 404 }));
+    });
+
+    renderWithProviders(<Transactions />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+    expect(screen.getByText("Request ID: req-txn-456")).toBeInTheDocument();
+  });
+
+  it("shows empty state when no transactions exist", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : (input as Request).url;
+
+      if (url.includes("/api/v1/transactions")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: [],
+              pagination: { page: 1, per_page: 25, total: 0, total_pages: 0 },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      if (url.includes("/api/v1/accounts")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(mockAccountsResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      return Promise.resolve(new Response("Not found", { status: 404 }));
+    });
+
+    renderWithProviders(<Transactions />);
+
+    await waitFor(() => {
+      expect(screen.getByText("No transactions yet")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Add your first one or import from CSV.")).toBeInTheDocument();
+  });
 });

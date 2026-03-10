@@ -22,6 +22,7 @@ export default function DebtGoalCard({ goal, onClick, onContribute }: DebtGoalCa
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onClick();
       }}
+      aria-label={`${goal.name}, ${formatCurrency(goal.current_amount)} remaining`}
       className="cursor-pointer rounded-lg p-5 transition-all"
       style={{
         backgroundColor: "var(--color-surface)",

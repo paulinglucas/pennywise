@@ -78,6 +78,18 @@ describe("TransactionFilters", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ account_id: "acc-1" }));
   });
 
+  it("has accessible search input with aria-label", () => {
+    renderWithProviders(
+      <TransactionFilters
+        filters={emptyFilters}
+        accounts={mockAccounts}
+        onFiltersChange={vi.fn()}
+      />,
+    );
+    const searchInput = screen.getByPlaceholderText("Search transactions...");
+    expect(searchInput).toHaveAttribute("aria-label", "Search transactions");
+  });
+
   it("renders type filter", () => {
     renderWithProviders(
       <TransactionFilters

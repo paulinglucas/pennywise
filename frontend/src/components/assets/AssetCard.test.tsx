@@ -49,6 +49,11 @@ describe("AssetCard", () => {
     expect(screen.getByText("Illiquid - Speculative")).toBeInTheDocument();
   });
 
+  it("has accessible aria-label with name and value", () => {
+    renderWithProviders(<AssetCard asset={baseAsset} portfolioTotal={500000} onClick={() => {}} />);
+    expect(screen.getByRole("button", { name: /Home, \$308,000\.00/ })).toBeInTheDocument();
+  });
+
   it("renders real estate equity info when metadata is present", () => {
     const realEstateAsset: AssetResponse = {
       ...baseAsset,

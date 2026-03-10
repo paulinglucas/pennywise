@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useId, useCallback, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 interface ModalProps {
@@ -8,26 +8,75 @@ interface ModalProps {
   children: ReactNode;
 }
 
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const selectors = [
+    "a[href]",
+    "button:not([disabled])",
+    "input:not([disabled])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
+    '[tabindex]:not([tabindex="-1"])',
+  ].join(",");
+  return Array.from(container.querySelectorAll<HTMLElement>(selectors));
+}
+
 export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
-  const contentRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+
+      if (event.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = getFocusableElements(dialogRef.current);
+      if (focusable.length === 0) return;
+
+      const first: HTMLElement | undefined = focusable[0];
+      const last: HTMLElement | undefined = focusable[focusable.length - 1];
+      if (!first || !last) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    },
+    [onClose],
+  );
 
   useEffect(() => {
     if (!isOpen) return;
 
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
+    previousFocusRef.current = document.activeElement as HTMLElement;
     document.addEventListener("keydown", handleKeyDown);
     document.body.style.overflow = "hidden";
 
+    const timer = setTimeout(() => {
+      if (!dialogRef.current) return;
+      const focusable = getFocusableElements(dialogRef.current);
+      const firstFocusable: HTMLElement | undefined = focusable[0];
+      if (firstFocusable) {
+        firstFocusable.focus();
+      }
+    }, 0);
+
     return () => {
+      clearTimeout(timer);
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
+      if (previousFocusRef.current && typeof previousFocusRef.current.focus === "function") {
+        previousFocusRef.current.focus();
+      }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, handleKeyDown]);
 
   if (!isOpen) return null;
 
@@ -39,7 +88,10 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
       style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
     >
       <div
-        ref={contentRef}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
         className="w-full max-w-lg rounded-lg"
         style={{
@@ -52,7 +104,11 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
           className="flex items-center justify-between border-b px-6 py-4"
           style={{ borderColor: "var(--color-border)" }}
         >
-          <h2 className="text-lg font-semibold" style={{ color: "var(--color-text-primary)" }}>
+          <h2
+            id={titleId}
+            className="text-lg font-semibold"
+            style={{ color: "var(--color-text-primary)" }}
+          >
             {title}
           </h2>
           <button

@@ -61,9 +61,9 @@ describe("ProjectionChart", () => {
 
   it("renders scenario legend labels", () => {
     renderWithProviders(<ProjectionChart data={mockData} />);
-    expect(screen.getByText("Best Case")).toBeInTheDocument();
-    expect(screen.getByText("Average")).toBeInTheDocument();
-    expect(screen.getByText("Worst Case")).toBeInTheDocument();
+    expect(screen.getAllByText("Best Case").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Average").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Worst Case").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders chart with large values without errors", () => {
@@ -101,5 +101,16 @@ describe("ProjectionChart", () => {
     const emptyData: ProjectionResponse = { scenarios: [] };
     renderWithProviders(<ProjectionChart data={emptyData} />);
     expect(screen.getByText("No projection data available")).toBeInTheDocument();
+  });
+
+  it("renders a screen-reader data table with projection scenarios", () => {
+    renderWithProviders(<ProjectionChart data={mockData} />);
+
+    const table = screen.getByRole("table", { name: "Net worth projection scenarios" });
+    expect(table).toBeInTheDocument();
+    expect(table.className).toContain("sr-only");
+
+    const rows = screen.getAllByRole("row");
+    expect(rows.length).toBe(5);
   });
 });

@@ -56,10 +56,10 @@ describe("Dashboard", () => {
     renderWithProviders(<Dashboard />);
 
     await waitFor(() => {
-      expect(screen.getByText("Net Worth")).toBeInTheDocument();
+      expect(screen.getAllByText("Net Worth").length).toBeGreaterThanOrEqual(1);
     });
 
-    expect(screen.getByText("$150,000.00")).toBeInTheDocument();
+    expect(screen.getAllByText("$150,000.00").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("$2,500.00")).toBeInTheDocument();
     expect(screen.getByText("Spending Breakdown")).toBeInTheDocument();
     expect(screen.getByText("Debt Tracker")).toBeInTheDocument();
@@ -99,10 +99,12 @@ describe("Dashboard", () => {
       expect(screen.getByText("Net Worth")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("No spending data available")).toBeInTheDocument();
+    expect(screen.getByText("Welcome to Pennywise")).toBeInTheDocument();
+    expect(screen.getByText("Add your accounts to get started.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add Assets" })).toBeInTheDocument();
   });
 
-  it("renders error state on API failure", async () => {
+  it("renders error state on API failure with retry button", async () => {
     mockFetch.mockResolvedValue({
       ok: false,
       status: 500,
@@ -117,5 +119,24 @@ describe("Dashboard", () => {
     });
 
     expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+  });
+
+  it("displays request ID in error state when available", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () =>
+        Promise.resolve({
+          error: { code: "INTERNAL_ERROR", message: "Server error", request_id: "req-dash-123" },
+        }),
+    });
+
+    renderWithProviders(<Dashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Request ID: req-dash-123")).toBeInTheDocument();
   });
 });

@@ -185,47 +185,68 @@ export default function NetWorthChart({ dataPoints, period, onPeriodChange }: Ne
           No data available for this period
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={200}>
-          <AreaChart data={timeData}>
-            <defs>
-              <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis
-              dataKey="timestamp"
-              type="number"
-              scale="time"
-              domain={[domainMin, domainMax]}
-              ticks={ticks}
-              tickFormatter={(val: number) => formatTickLabel(val, period)}
-              tick={{ fill: "var(--color-text-secondary)", fontSize: 11 }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tickFormatter={(val: number) => formatCurrency(val)}
-              tick={{ fill: "var(--color-text-secondary)", fontSize: 11 }}
-              axisLine={false}
-              tickLine={false}
-              width={90}
-              domain={[
-                (min: number) => Math.floor(min * 0.95),
-                (max: number) => Math.ceil(max * 1.05),
-              ]}
-            />
-            <Tooltip content={<ChartTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke="#22c55e"
-              strokeWidth={2}
-              fill="url(#netWorthGradient)"
-              animationDuration={600}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        <>
+          <div aria-hidden="true">
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={timeData}>
+                <defs>
+                  <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="timestamp"
+                  type="number"
+                  scale="time"
+                  domain={[domainMin, domainMax]}
+                  ticks={ticks}
+                  tickFormatter={(val: number) => formatTickLabel(val, period)}
+                  tick={{ fill: "var(--color-text-secondary)", fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tickFormatter={(val: number) => formatCurrency(val)}
+                  tick={{ fill: "var(--color-text-secondary)", fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={90}
+                  domain={[
+                    (min: number) => Math.floor(min * 0.95),
+                    (max: number) => Math.ceil(max * 1.05),
+                  ]}
+                />
+                <Tooltip content={<ChartTooltip />} />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#22c55e"
+                  strokeWidth={2}
+                  fill="url(#netWorthGradient)"
+                  animationDuration={600}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <table className="sr-only">
+            <caption>Net worth over time</caption>
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Net Worth</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dataPoints.map((dp) => (
+                <tr key={dp.date}>
+                  <td>{formatDate(dp.date)}</td>
+                  <td>{formatCurrency(dp.value)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
     </div>
   );

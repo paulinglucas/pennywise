@@ -18,13 +18,24 @@ describe("AllocationChart", () => {
 
   it("renders legend entries for each asset type", () => {
     renderWithProviders(<AllocationChart allocation={mockAllocation} />);
-    expect(screen.getByText("Real Estate")).toBeInTheDocument();
-    expect(screen.getByText("Retirement")).toBeInTheDocument();
-    expect(screen.getByText("Speculative")).toBeInTheDocument();
+    expect(screen.getAllByText("Real Estate").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Retirement").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Speculative").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders empty message when no allocation data", () => {
     renderWithProviders(<AllocationChart allocation={[]} />);
     expect(screen.getByText("No allocation data")).toBeInTheDocument();
+  });
+
+  it("renders a screen-reader data table with allocation details", () => {
+    renderWithProviders(<AllocationChart allocation={mockAllocation} />);
+
+    const table = screen.getByRole("table", { name: "Portfolio allocation by asset type" });
+    expect(table).toBeInTheDocument();
+    expect(table.className).toContain("sr-only");
+
+    const rows = screen.getAllByRole("row");
+    expect(rows.length).toBe(mockAllocation.length + 1);
   });
 });

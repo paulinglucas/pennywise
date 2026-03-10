@@ -158,7 +158,7 @@ export default function SpendingBreakdown({
             </span>
           </div>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0" aria-hidden="true">
               <ResponsiveContainer width={160} height={160}>
                 <PieChart>
                   <Pie
@@ -184,6 +184,25 @@ export default function SpendingBreakdown({
               <CategoryLegend categories={categories} />
             </div>
           </div>
+          <table className="sr-only">
+            <caption>Spending breakdown by category</caption>
+            <thead>
+              <tr>
+                <th scope="col">Category</th>
+                <th scope="col">Amount</th>
+                <th scope="col">Percentage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {categories.map((cat) => (
+                <tr key={cat.category}>
+                  <td>{cat.category}</td>
+                  <td>{formatCurrency(cat.amount)}</td>
+                  <td>{formatPercentage(cat.percentage)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

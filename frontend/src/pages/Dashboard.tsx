@@ -6,6 +6,7 @@ import SpendingBreakdown from "@/components/dashboard/SpendingBreakdown";
 import DebtTracker from "@/components/dashboard/DebtTracker";
 import InsightCards from "@/components/dashboard/InsightCard";
 import EmptyState from "@/components/shared/EmptyState";
+import ErrorState, { extractRequestId } from "@/components/shared/ErrorState";
 import { SkeletonCard, SkeletonChart } from "@/components/shared/Skeleton";
 
 function DashboardSkeleton() {
@@ -25,30 +26,6 @@ function DashboardSkeleton() {
   );
 }
 
-function DashboardError({ onRetry }: { onRetry: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <h2 className="mb-2 text-lg font-semibold" style={{ color: "var(--color-text-primary)" }}>
-        Something went wrong
-      </h2>
-      <p className="mb-6 max-w-sm text-sm" style={{ color: "var(--color-text-secondary)" }}>
-        We could not load your dashboard data. Please try again.
-      </p>
-      <button
-        onClick={onRetry}
-        className="btn-primary rounded-md px-4 py-2 text-sm font-medium transition-all"
-        style={{
-          backgroundColor: "var(--color-accent)",
-          color: "var(--color-background)",
-          boxShadow: "var(--glow-accent)",
-        }}
-      >
-        Retry
-      </button>
-    </div>
-  );
-}
-
 export default function Dashboard() {
   const [period, setPeriod] = useState("1y");
   const [spendingPeriod, setSpendingPeriod] = useState<SpendingPeriod>("30d");
@@ -56,7 +33,13 @@ export default function Dashboard() {
   const history = useNetWorthHistory(period as "1m" | "1y" | "5y" | "all");
 
   if (dashboard.isError) {
-    return <DashboardError onRetry={() => dashboard.refetch()} />;
+    return (
+      <ErrorState
+        message="We could not load your dashboard data. Please try again."
+        onRetry={() => dashboard.refetch()}
+        requestId={extractRequestId(dashboard.error)}
+      />
+    );
   }
 
   const data = dashboard.data;
@@ -80,10 +63,10 @@ export default function Dashboard() {
           onPeriodChange={(p) => setSpendingPeriod(p as SpendingPeriod)}
         />
         <EmptyState
-          title="No data yet"
-          description="Link your accounts or add transactions to get started."
-          actionLabel="Add Transaction"
-          actionTo="/transactions"
+          title="Welcome to Pennywise"
+          description="Add your accounts to get started."
+          actionLabel="Add Assets"
+          actionTo="/assets"
         />
       </div>
     );

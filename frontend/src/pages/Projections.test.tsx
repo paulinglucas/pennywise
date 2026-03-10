@@ -81,9 +81,9 @@ describe("Projections", () => {
       expect(screen.getByText("Net Worth Projection")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("$1,500,000.00")).toBeInTheDocument();
-    expect(screen.getByText("$1,200,000.00")).toBeInTheDocument();
-    expect(screen.getByText("$800,000.00")).toBeInTheDocument();
+    expect(screen.getAllByText("$1,500,000.00").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("$1,200,000.00").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("$800,000.00").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders skeleton while loading", () => {
@@ -92,14 +92,14 @@ describe("Projections", () => {
     expect(screen.getByTestId("projection-skeleton")).toBeInTheDocument();
   });
 
-  it("renders error state on API failure", async () => {
+  it("renders error state on API failure with request ID", async () => {
     mockFetch.mockResolvedValue({
       ok: false,
       status: 500,
       statusText: "Internal Server Error",
       json: () =>
         Promise.resolve({
-          error: { code: "INTERNAL_ERROR", message: "Server error", request_id: "r1" },
+          error: { code: "INTERNAL_ERROR", message: "Server error", request_id: "req-proj-789" },
         }),
     });
     renderWithProviders(<Projections />);
@@ -107,6 +107,32 @@ describe("Projections", () => {
     await waitFor(() => {
       expect(screen.getByText("Something went wrong")).toBeInTheDocument();
     });
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+    expect(screen.getByText("Request ID: req-proj-789")).toBeInTheDocument();
+  });
+
+  it("renders empty state when no financial data exists", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          net_worth: 0,
+          cash_flow_this_month: 0,
+          spending_by_category: [],
+          debts_summary: [],
+          scenarios: [],
+        }),
+    });
+    renderWithProviders(<Projections />);
+
+    await waitFor(() => {
+      expect(screen.getByText("No financial data yet")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText("Add some financial data first to see your projections."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Go to Dashboard" })).toBeInTheDocument();
   });
 
   it("changing sliders triggers new API call", async () => {

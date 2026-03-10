@@ -71,6 +71,15 @@ describe("SavingsGoalCard", () => {
     expect(screen.getByText(/Sep 1, 2026/)).toBeInTheDocument();
   });
 
+  it("has accessible aria-label with name and amounts", () => {
+    renderWithProviders(
+      <SavingsGoalCard goal={savingsGoal} onClick={vi.fn()} onContribute={vi.fn()} />,
+    );
+    expect(
+      screen.getByRole("button", { name: /Engagement ring, \$2,400\.00 of \$8,000\.00/ }),
+    ).toBeInTheDocument();
+  });
+
   it("calls onClick when clicked", () => {
     const onClick = vi.fn();
     renderWithProviders(

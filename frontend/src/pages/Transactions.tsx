@@ -20,6 +20,8 @@ import TransactionForm from "@/components/transactions/TransactionForm";
 import TransactionGroupForm from "@/components/transactions/TransactionGroupForm";
 import CsvImport from "@/components/transactions/CsvImport";
 import Modal from "@/components/shared/Modal";
+import EmptyState from "@/components/shared/EmptyState";
+import ErrorState, { extractRequestId } from "@/components/shared/ErrorState";
 import { Skeleton } from "@/components/shared/Skeleton";
 
 export default function Transactions() {
@@ -202,11 +204,11 @@ function TransactionContent({
 }) {
   if (transactions.isError) {
     return (
-      <div className="py-12 text-center">
-        <p className="text-sm" style={{ color: "var(--color-negative)" }}>
-          Failed to load transactions.
-        </p>
-      </div>
+      <ErrorState
+        message="Failed to load transactions. Please try again."
+        onRetry={() => transactions.refetch()}
+        requestId={extractRequestId(transactions.error)}
+      />
     );
   }
 
@@ -216,11 +218,12 @@ function TransactionContent({
 
   if (transactions.data.data.length === 0) {
     return (
-      <div className="py-12 text-center">
-        <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
-          No transactions found.
-        </p>
-      </div>
+      <EmptyState
+        title="No transactions yet"
+        description="Add your first one or import from CSV."
+        actionLabel="Add Transaction"
+        actionTo="/transactions"
+      />
     );
   }
 
