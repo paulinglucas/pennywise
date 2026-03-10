@@ -511,17 +511,18 @@ type AssetListResponse struct {
 
 // AssetResponse defines model for AssetResponse.
 type AssetResponse struct {
-	AccountId    *openapi_types.UUID     `json:"account_id,omitempty"`
-	AssetType    AssetType               `json:"asset_type"`
-	CreatedAt    time.Time               `json:"created_at"`
-	Currency     Currency                `json:"currency"`
-	CurrentValue float32                 `json:"current_value"`
-	History      *[]AssetHistoryEntry    `json:"history,omitempty"`
-	Id           openapi_types.UUID      `json:"id"`
-	Metadata     *map[string]interface{} `json:"metadata,omitempty"`
-	Name         string                  `json:"name"`
-	UpdatedAt    time.Time               `json:"updated_at"`
-	UserId       openapi_types.UUID      `json:"user_id"`
+	AccountId     *openapi_types.UUID     `json:"account_id,omitempty"`
+	AssetType     AssetType               `json:"asset_type"`
+	CreatedAt     time.Time               `json:"created_at"`
+	Currency      Currency                `json:"currency"`
+	CurrentValue  float32                 `json:"current_value"`
+	History       *[]AssetHistoryEntry    `json:"history,omitempty"`
+	Id            openapi_types.UUID      `json:"id"`
+	LinkedAccount *LinkedAccountSummary   `json:"linked_account,omitempty"`
+	Metadata      *map[string]interface{} `json:"metadata,omitempty"`
+	Name          string                  `json:"name"`
+	UpdatedAt     time.Time               `json:"updated_at"`
+	UserId        openapi_types.UUID      `json:"user_id"`
 }
 
 // AssetType defines model for AssetType.
@@ -615,7 +616,12 @@ type DashboardResponse struct {
 		OriginalBalance *float32            `json:"original_balance,omitempty"`
 		PayoffDate      *openapi_types.Date `json:"payoff_date,omitempty"`
 	} `json:"debts_summary"`
-	NetWorth           float32 `json:"net_worth"`
+	NetWorth          float32 `json:"net_worth"`
+	NetWorthBreakdown struct {
+		Assets float32 `json:"assets"`
+		Cash   float32 `json:"cash"`
+		Debt   float32 `json:"debt"`
+	} `json:"net_worth_breakdown"`
 	SpendingByCategory []struct {
 		Amount     float32 `json:"amount"`
 		Category   string  `json:"category"`
@@ -728,6 +734,15 @@ type ImportResponse struct {
 	Imported int `json:"imported"`
 }
 
+// LinkedAccountSummary defines model for LinkedAccountSummary.
+type LinkedAccountSummary struct {
+	AccountType AccountType        `json:"account_type"`
+	Balance     *float32           `json:"balance,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	Institution *string            `json:"institution,omitempty"`
+	Name        string             `json:"name"`
+}
+
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
 	Email    openapi_types.Email `json:"email"`
@@ -809,6 +824,13 @@ type RecurringResponse struct {
 	Type           TransactionType    `json:"type"`
 	UpdatedAt      time.Time          `json:"updated_at"`
 	UserId         openapi_types.UUID `json:"user_id"`
+}
+
+// RegisterRequest defines model for RegisterRequest.
+type RegisterRequest struct {
+	Email    openapi_types.Email `json:"email"`
+	Name     string              `json:"name"`
+	Password string              `json:"password"`
 }
 
 // Scenario defines model for Scenario.
@@ -1091,6 +1113,9 @@ type UpdateAssetJSONRequestBody = UpdateAssetRequest
 // PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
 type PostAuthLoginJSONRequestBody = LoginRequest
 
+// PostAuthRegisterJSONRequestBody defines body for PostAuthRegister for application/json ContentType.
+type PostAuthRegisterJSONRequestBody = RegisterRequest
+
 // CreateGoalJSONRequestBody defines body for CreateGoal for application/json ContentType.
 type CreateGoalJSONRequestBody = CreateGoalRequest
 
@@ -1183,6 +1208,9 @@ type ServerInterface interface {
 	// Get current user
 	// (GET /auth/me)
 	GetAuthMe(w http.ResponseWriter, r *http.Request)
+	// Register a new user (max 2 users)
+	// (POST /auth/register)
+	PostAuthRegister(w http.ResponseWriter, r *http.Request)
 	// List distinct categories used by the current user
 	// (GET /categories)
 	ListCategories(w http.ResponseWriter, r *http.Request)
@@ -1384,6 +1412,12 @@ func (_ Unimplemented) PostAuthLogout(w http.ResponseWriter, r *http.Request) {
 // Get current user
 // (GET /auth/me)
 func (_ Unimplemented) GetAuthMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Register a new user (max 2 users)
+// (POST /auth/register)
+func (_ Unimplemented) PostAuthRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2088,6 +2122,20 @@ func (siw *ServerInterfaceWrapper) GetAuthMe(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAuthMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAuthRegister operation middleware
+func (siw *ServerInterfaceWrapper) PostAuthRegister(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAuthRegister(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3260,6 +3308,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/auth/me", wrapper.GetAuthMe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/register", wrapper.PostAuthRegister)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/categories", wrapper.ListCategories)

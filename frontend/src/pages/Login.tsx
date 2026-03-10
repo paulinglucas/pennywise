@@ -1,21 +1,36 @@
 import { useState, type FormEvent } from "react";
-import { useLogin } from "@/hooks/useAuth";
+import { useLogin, useRegister } from "@/hooks/useAuth";
 import { ApiError } from "@/api/client";
 
 export default function Login() {
+  const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const loginMutation = useLogin();
+  const registerMutation = useRegister();
+
+  const activeMutation = isRegistering ? registerMutation : loginMutation;
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    loginMutation.mutate({ email, password });
+    if (isRegistering) {
+      registerMutation.mutate({ email, password, name });
+    } else {
+      loginMutation.mutate({ email, password });
+    }
+  }
+
+  function toggleMode() {
+    setIsRegistering((prev) => !prev);
+    loginMutation.reset();
+    registerMutation.reset();
   }
 
   const errorMessage =
-    loginMutation.error instanceof ApiError
-      ? loginMutation.error.message
-      : loginMutation.error?.message;
+    activeMutation.error instanceof ApiError
+      ? activeMutation.error.message
+      : activeMutation.error?.message;
 
   return (
     <div
@@ -37,6 +52,31 @@ export default function Login() {
           Pennywise
         </h1>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {isRegistering && (
+            <div>
+              <label
+                htmlFor="name"
+                className="mb-1 block text-sm font-medium"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                Name
+              </label>
+              <input
+                id="name"
+                type="text"
+                required
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="w-full rounded-md border px-3 py-2 text-sm transition-shadow"
+                style={{
+                  backgroundColor: "var(--color-background)",
+                  borderColor: "var(--color-border)",
+                  color: "var(--color-text-primary)",
+                }}
+                autoComplete="name"
+              />
+            </div>
+          )}
           <div>
             <label
               htmlFor="email"
@@ -72,6 +112,7 @@ export default function Login() {
               id="password"
               type="password"
               required
+              minLength={isRegistering ? 8 : undefined}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="w-full rounded-md border px-3 py-2 text-sm transition-shadow"
@@ -80,7 +121,7 @@ export default function Login() {
                 borderColor: "var(--color-border)",
                 color: "var(--color-text-primary)",
               }}
-              autoComplete="current-password"
+              autoComplete={isRegistering ? "new-password" : "current-password"}
             />
           </div>
           {errorMessage && (
@@ -90,7 +131,7 @@ export default function Login() {
           )}
           <button
             type="submit"
-            disabled={loginMutation.isPending}
+            disabled={activeMutation.isPending}
             className="btn-primary w-full rounded-md px-4 py-2 text-sm font-medium transition-all disabled:opacity-50"
             style={{
               backgroundColor: "var(--color-accent)",
@@ -98,9 +139,26 @@ export default function Login() {
               boxShadow: "var(--glow-accent)",
             }}
           >
-            {loginMutation.isPending ? "Signing in..." : "Sign in"}
+            {activeMutation.isPending
+              ? isRegistering
+                ? "Creating account..."
+                : "Signing in..."
+              : isRegistering
+                ? "Create account"
+                : "Sign in"}
           </button>
         </form>
+        <p className="mt-4 text-center text-sm" style={{ color: "var(--color-text-secondary)" }}>
+          {isRegistering ? "Already have an account?" : "Need an account?"}{" "}
+          <button
+            type="button"
+            onClick={toggleMode}
+            className="font-medium underline"
+            style={{ color: "var(--color-accent)" }}
+          >
+            {isRegistering ? "Sign in" : "Sign up"}
+          </button>
+        </p>
       </div>
     </div>
   );

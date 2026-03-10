@@ -28,6 +28,7 @@ func createTestAccount(t *testing.T, router http.Handler, cookie *http.Cookie) s
 }
 
 func TestCreateRecurring_ValidRequest(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	accountID := createTestAccount(t, router, cookie)
@@ -49,6 +50,7 @@ func TestCreateRecurring_ValidRequest(t *testing.T) {
 }
 
 func TestCreateRecurring_MissingFields_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -61,6 +63,7 @@ func TestCreateRecurring_MissingFields_Returns400(t *testing.T) {
 }
 
 func TestListRecurring_NoAuth_Returns401(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/recurring", nil)
@@ -71,6 +74,7 @@ func TestListRecurring_NoAuth_Returns401(t *testing.T) {
 }
 
 func TestListRecurring_Success(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	accountID := createTestAccount(t, router, cookie)
@@ -96,6 +100,7 @@ func TestListRecurring_Success(t *testing.T) {
 }
 
 func TestListRecurring_Pagination(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	accountID := createTestAccount(t, router, cookie)
@@ -122,6 +127,7 @@ func TestListRecurring_Pagination(t *testing.T) {
 }
 
 func TestListRecurring_UserScoping(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -156,6 +162,7 @@ func TestListRecurring_UserScoping(t *testing.T) {
 }
 
 func TestUpdateRecurring_ValidRequest(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	accountID := createTestAccount(t, router, cookie)
@@ -183,6 +190,7 @@ func TestUpdateRecurring_ValidRequest(t *testing.T) {
 }
 
 func TestUpdateRecurring_AllFields(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	accountID := createTestAccount(t, router, cookie)
@@ -224,6 +232,7 @@ func TestUpdateRecurring_AllFields(t *testing.T) {
 }
 
 func TestUpdateRecurring_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	accountID := createTestAccount(t, router, cookie)
@@ -245,6 +254,7 @@ func TestUpdateRecurring_InvalidJSON_Returns400(t *testing.T) {
 }
 
 func TestUpdateRecurring_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -257,6 +267,7 @@ func TestUpdateRecurring_NotFound_Returns404(t *testing.T) {
 }
 
 func TestDeleteRecurring_SoftDeletes(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	accountID := createTestAccount(t, router, cookie)
@@ -286,6 +297,7 @@ func TestDeleteRecurring_SoftDeletes(t *testing.T) {
 }
 
 func TestDeleteRecurring_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 

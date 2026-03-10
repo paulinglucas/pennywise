@@ -28,6 +28,7 @@ func seedGoalForContribution(t *testing.T, repo *queries.SQLiteGoalRepository, g
 }
 
 func TestContributionCreate_And_List(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	goalRepo := queries.NewGoalRepository(database)
 	contribRepo := queries.NewGoalContributionRepository(database)
@@ -57,6 +58,7 @@ func TestContributionCreate_And_List(t *testing.T) {
 }
 
 func TestContributionList_OrderedByDate(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	goalRepo := queries.NewGoalRepository(database)
 	contribRepo := queries.NewGoalContributionRepository(database)
@@ -81,6 +83,7 @@ func TestContributionList_OrderedByDate(t *testing.T) {
 }
 
 func TestContributionList_Pagination(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	goalRepo := queries.NewGoalRepository(database)
 	contribRepo := queries.NewGoalContributionRepository(database)
@@ -101,6 +104,7 @@ func TestContributionList_Pagination(t *testing.T) {
 }
 
 func TestContributionList_UserScoping(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	goalRepo := queries.NewGoalRepository(database)
 	contribRepo := queries.NewGoalContributionRepository(database)
@@ -119,6 +123,7 @@ func TestContributionList_UserScoping(t *testing.T) {
 }
 
 func TestContributionGetByID(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	goalRepo := queries.NewGoalRepository(database)
 	contribRepo := queries.NewGoalContributionRepository(database)
@@ -138,6 +143,7 @@ func TestContributionGetByID(t *testing.T) {
 }
 
 func TestContributionGetByID_NotFound(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	contribRepo := queries.NewGoalContributionRepository(database)
 
@@ -147,6 +153,7 @@ func TestContributionGetByID_NotFound(t *testing.T) {
 }
 
 func TestContributionGetByID_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	goalRepo := queries.NewGoalRepository(database)
 	contribRepo := queries.NewGoalContributionRepository(database)
@@ -164,6 +171,7 @@ func TestContributionGetByID_WrongUser(t *testing.T) {
 }
 
 func TestContributionDelete(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	goalRepo := queries.NewGoalRepository(database)
 	contribRepo := queries.NewGoalContributionRepository(database)
@@ -185,6 +193,7 @@ func TestContributionDelete(t *testing.T) {
 }
 
 func TestContributionDelete_NotFound(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	contribRepo := queries.NewGoalContributionRepository(database)
 
@@ -194,6 +203,7 @@ func TestContributionDelete_NotFound(t *testing.T) {
 }
 
 func TestContributionDelete_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	goalRepo := queries.NewGoalRepository(database)
 	contribRepo := queries.NewGoalContributionRepository(database)
@@ -211,6 +221,7 @@ func TestContributionDelete_WrongUser(t *testing.T) {
 }
 
 func TestContributionCreate_NilNotes(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	goalRepo := queries.NewGoalRepository(database)
 	contribRepo := queries.NewGoalContributionRepository(database)
@@ -246,6 +257,7 @@ func seedAccountAndTransaction(t *testing.T, database *sql.DB, txnID, userID str
 }
 
 func TestContributionCreate_WithTransactionID(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	goalRepo := queries.NewGoalRepository(database)
 	contribRepo := queries.NewGoalContributionRepository(database)
@@ -268,6 +280,7 @@ func TestContributionCreate_WithTransactionID(t *testing.T) {
 }
 
 func TestContributionCreate_WithoutTransactionID(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	goalRepo := queries.NewGoalRepository(database)
 	contribRepo := queries.NewGoalContributionRepository(database)

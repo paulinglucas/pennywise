@@ -23,6 +23,16 @@ import (
 
 var testSecret = []byte("test-secret-key-at-least-32-bytes-long")
 
+var precomputedHash string
+
+func init() {
+	hash, err := bcrypt.GenerateFromPassword([]byte("pennywise"), bcrypt.MinCost)
+	if err != nil {
+		panic(err)
+	}
+	precomputedHash = string(hash)
+}
+
 func setupTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	database, err := db.Open(":memory:")
@@ -32,15 +42,12 @@ func setupTestDB(t *testing.T) *sql.DB {
 	err = db.Migrate(database)
 	require.NoError(t, err)
 
-	hash, err := bcrypt.GenerateFromPassword([]byte("pennywise"), bcrypt.DefaultCost)
-	require.NoError(t, err)
-
 	_, err = database.ExecContext(context.Background(),
 		`INSERT INTO users (id, email, name, password_hash) VALUES (?, ?, ?, ?)`,
 		"usr00001-0000-0000-0000-000000000001",
 		"james@example.com",
 		"James",
-		string(hash),
+		precomputedHash,
 	)
 	require.NoError(t, err)
 
@@ -63,6 +70,7 @@ func setupRouter(t *testing.T) (*sql.DB, http.Handler) {
 	dlqWriter := dlq.NewFailedRequestWriter(database)
 	groupRepo := queries.NewTransactionGroupRepository(database)
 	handler := api.NewAppHandler(userRepo, accountRepo, txnRepo, groupRepo, assetRepo, goalRepo, goalContribRepo, recurringRepo, alertRepo, dashboardRepo, auditRepo, dlqWriter, testSecret)
+	handler.SetBcryptCost(bcrypt.MinCost)
 
 	validator, err := middleware.Validation(api.OpenAPISpec, "/api/v1")
 	require.NoError(t, err)
@@ -81,6 +89,7 @@ func setupRouter(t *testing.T) (*sql.DB, http.Handler) {
 }
 
 func TestPostAuthLogin_ValidCredentials(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	body := `{"email":"james@example.com","password":"pennywise"}`
@@ -108,6 +117,7 @@ func TestPostAuthLogin_ValidCredentials(t *testing.T) {
 }
 
 func TestPostAuthLogin_WrongPassword(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	body := `{"email":"james@example.com","password":"wrong"}`
@@ -125,6 +135,7 @@ func TestPostAuthLogin_WrongPassword(t *testing.T) {
 }
 
 func TestPostAuthLogin_NonexistentEmail(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	body := `{"email":"nobody@example.com","password":"pennywise"}`
@@ -138,6 +149,7 @@ func TestPostAuthLogin_NonexistentEmail(t *testing.T) {
 }
 
 func TestPostAuthLogin_InvalidRequestBody(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	body := `not json`
@@ -151,6 +163,7 @@ func TestPostAuthLogin_InvalidRequestBody(t *testing.T) {
 }
 
 func TestPostAuthLogout_ClearsCookie(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	loginBody := `{"email":"james@example.com","password":"pennywise"}`
@@ -177,6 +190,7 @@ func TestPostAuthLogout_ClearsCookie(t *testing.T) {
 }
 
 func TestGetAuthMe_WithValidToken(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	loginBody := `{"email":"james@example.com","password":"pennywise"}`
@@ -202,6 +216,7 @@ func TestGetAuthMe_WithValidToken(t *testing.T) {
 }
 
 func TestGetAuthMe_WithoutToken_Returns401(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
@@ -211,7 +226,104 @@ func TestGetAuthMe_WithoutToken_Returns401(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
+func TestPostAuthRegister_Success(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+
+	body := `{"email":"newuser@example.com","password":"securepassword123","name":"New User"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.LoginResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, "newuser@example.com", resp.User.Email)
+	assert.Equal(t, "New User", resp.User.Name)
+	assert.NotEmpty(t, resp.User.Id)
+
+	cookies := rec.Result().Cookies()
+	require.Len(t, cookies, 1)
+	assert.Equal(t, "token", cookies[0].Name)
+	assert.True(t, cookies[0].HttpOnly)
+}
+
+func TestPostAuthRegister_DuplicateEmail(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+
+	body := `{"email":"james@example.com","password":"securepassword123","name":"Duplicate"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusConflict, rec.Code)
+}
+
+func TestPostAuthRegister_MaxUsersReached(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+
+	body1 := `{"email":"second@example.com","password":"securepassword123","name":"Second"}`
+	req1 := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString(body1))
+	req1.Header.Set("Content-Type", "application/json")
+	rec1 := httptest.NewRecorder()
+	router.ServeHTTP(rec1, req1)
+	require.Equal(t, http.StatusCreated, rec1.Code)
+
+	body2 := `{"email":"third@example.com","password":"securepassword123","name":"Third"}`
+	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString(body2))
+	req2.Header.Set("Content-Type", "application/json")
+	rec2 := httptest.NewRecorder()
+	router.ServeHTTP(rec2, req2)
+
+	assert.Equal(t, http.StatusConflict, rec2.Code)
+}
+
+func TestPostAuthRegister_ShortPassword(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+
+	body := `{"email":"short@example.com","password":"abc","name":"Short"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestPostAuthRegister_AutoLoginAfterRegister(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+
+	body := `{"email":"autologin@example.com","password":"securepassword123","name":"Auto"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusCreated, rec.Code)
+
+	tokenCookie := rec.Result().Cookies()[0]
+	meReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	meReq.AddCookie(tokenCookie)
+	meRec := httptest.NewRecorder()
+	router.ServeHTTP(meRec, meReq)
+
+	assert.Equal(t, http.StatusOK, meRec.Code)
+	var resp api.UserResponse
+	require.NoError(t, json.Unmarshal(meRec.Body.Bytes(), &resp))
+	assert.Equal(t, "autologin@example.com", resp.Email)
+}
+
 func TestRequestID_PresentOnEveryResponse(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 
 	body := `{"email":"james@example.com","password":"pennywise"}`

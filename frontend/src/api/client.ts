@@ -28,6 +28,7 @@ export type UpdateAssetRequest = Schemas["UpdateAssetRequest"];
 export type PortfolioSummary = Schemas["PortfolioSummary"];
 export type AllocationEntry = Schemas["AllocationEntry"];
 export type AssetHistoryEntry = Schemas["AssetHistoryEntry"];
+export type LinkedAccountSummary = Schemas["LinkedAccountSummary"];
 export type AllocationResponse = Schemas["AllocationResponse"];
 export type GoalResponse = Schemas["GoalResponse"];
 export type GoalListResponse = Schemas["GoalListResponse"];
@@ -112,6 +113,17 @@ export function getMe(): Promise<MeResult> {
 
 export function logout(): Promise<void> {
   return request<void>("/api/v1/auth/logout", { method: "POST" });
+}
+
+type RegisterBody = paths["/auth/register"]["post"]["requestBody"]["content"]["application/json"];
+type RegisterResult =
+  paths["/auth/register"]["post"]["responses"]["201"]["content"]["application/json"];
+
+export function register(body: RegisterBody): Promise<RegisterResult> {
+  return request<RegisterResult>("/api/v1/auth/register", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export type DashboardResponse = Schemas["DashboardResponse"];

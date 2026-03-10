@@ -56,7 +56,11 @@ export default function Dashboard() {
   if (isEmpty) {
     return (
       <div className="flex flex-col gap-6">
-        <CashFlowSummary netWorth={data.net_worth} cashFlow={data.cash_flow_this_month} />
+        <CashFlowSummary
+          netWorth={data.net_worth}
+          breakdown={data.net_worth_breakdown}
+          cashFlow={data.cash_flow_this_month}
+        />
         <SpendingBreakdown
           categories={data.spending_by_category}
           period={spendingPeriod ?? "30d"}
@@ -74,7 +78,11 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <CashFlowSummary netWorth={data.net_worth} cashFlow={data.cash_flow_this_month} />
+      <CashFlowSummary
+        netWorth={data.net_worth}
+        breakdown={data.net_worth_breakdown}
+        cashFlow={data.cash_flow_this_month}
+      />
       <NetWorthChart
         dataPoints={history.data?.data_points ?? []}
         period={period}

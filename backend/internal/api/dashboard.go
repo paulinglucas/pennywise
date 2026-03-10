@@ -56,7 +56,16 @@ func (h *AppHandler) GetDashboard(w http.ResponseWriter, r *http.Request, params
 	debts := buildDebtsResponse(debtRows)
 
 	WriteJSON(w, http.StatusOK, DashboardResponse{
-		NetWorth:           float32(netWorth),
+		NetWorth: float32(netWorth),
+		NetWorthBreakdown: struct {
+			Assets float32 `json:"assets"`
+			Cash   float32 `json:"cash"`
+			Debt   float32 `json:"debt"`
+		}{
+			Assets: float32(nwResult.AssetTotal),
+			Cash:   float32(nwResult.CashTotal),
+			Debt:   float32(nwResult.DebtTotal),
+		},
 		CashFlowThisMonth:  float32(cashFlow),
 		SpendingByCategory: spending,
 		DebtsSummary:       debts,

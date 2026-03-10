@@ -29,6 +29,7 @@ func createTestGoal(t *testing.T, router http.Handler, cookie *http.Cookie) api.
 }
 
 func TestCreateGoalContribution_Success(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -48,6 +49,7 @@ func TestCreateGoalContribution_Success(t *testing.T) {
 }
 
 func TestCreateGoalContribution_UpdatesGoalAmount(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -69,6 +71,7 @@ func TestCreateGoalContribution_UpdatesGoalAmount(t *testing.T) {
 }
 
 func TestCreateGoalContribution_WithDate(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -86,6 +89,7 @@ func TestCreateGoalContribution_WithDate(t *testing.T) {
 }
 
 func TestCreateGoalContribution_GoalNotFound(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -98,6 +102,7 @@ func TestCreateGoalContribution_GoalNotFound(t *testing.T) {
 }
 
 func TestCreateGoalContribution_InvalidBody(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -111,6 +116,7 @@ func TestCreateGoalContribution_InvalidBody(t *testing.T) {
 }
 
 func TestCreateGoalContribution_NoAuth(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -125,6 +131,7 @@ func TestCreateGoalContribution_NoAuth(t *testing.T) {
 }
 
 func TestListGoalContributions_Success(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -150,6 +157,7 @@ func TestListGoalContributions_Success(t *testing.T) {
 }
 
 func TestListGoalContributions_GoalNotFound(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -161,6 +169,7 @@ func TestListGoalContributions_GoalNotFound(t *testing.T) {
 }
 
 func TestListGoalContributions_Pagination(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -187,6 +196,7 @@ func TestListGoalContributions_Pagination(t *testing.T) {
 }
 
 func TestDeleteGoalContribution_Success(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -208,6 +218,7 @@ func TestDeleteGoalContribution_Success(t *testing.T) {
 }
 
 func TestDeleteGoalContribution_ReversesGoalAmount(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -237,6 +248,7 @@ func TestDeleteGoalContribution_ReversesGoalAmount(t *testing.T) {
 }
 
 func TestDeleteGoalContribution_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -249,6 +261,7 @@ func TestDeleteGoalContribution_NotFound(t *testing.T) {
 }
 
 func TestDeleteGoalContribution_GoalNotFound(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -260,6 +273,7 @@ func TestDeleteGoalContribution_GoalNotFound(t *testing.T) {
 }
 
 func TestCreateGoalContribution_AuditLog(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -280,6 +294,7 @@ func TestCreateGoalContribution_AuditLog(t *testing.T) {
 }
 
 func TestCreateGoalContribution_MultipleContributions(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -317,6 +332,7 @@ func createTestTransaction(t *testing.T, router http.Handler, cookie *http.Cooki
 }
 
 func TestCreateGoalContribution_WithTransactionID(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -337,6 +353,7 @@ func TestCreateGoalContribution_WithTransactionID(t *testing.T) {
 }
 
 func TestCreateGoalContribution_WithoutTransactionID(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -354,6 +371,7 @@ func TestCreateGoalContribution_WithoutTransactionID(t *testing.T) {
 }
 
 func TestCreateGoalContribution_InvalidTransactionID(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)
@@ -367,6 +385,7 @@ func TestCreateGoalContribution_InvalidTransactionID(t *testing.T) {
 }
 
 func TestCreateGoalContribution_TransactionIDInListResponse(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 	goal := createTestGoal(t, router, cookie)

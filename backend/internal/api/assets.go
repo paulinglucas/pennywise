@@ -23,6 +23,7 @@ type AssetRepository interface {
 	GetHistory(ctx context.Context, userID, assetID string, since *time.Time) ([]models.AssetHistory, error)
 	GetAllocation(ctx context.Context, userID string) ([]queries.AllocationRow, error)
 	GetAllocationOverTime(ctx context.Context, userID string, since *time.Time) ([]queries.AllocationSnapshot, error)
+	GetLinkedAccounts(ctx context.Context, accountIDs []string) (map[string]queries.LinkedAccountRow, error)
 }
 
 func (h *AppHandler) ListAssets(w http.ResponseWriter, r *http.Request, params ListAssetsParams) {
@@ -43,9 +44,16 @@ func (h *AppHandler) ListAssets(w http.ResponseWriter, r *http.Request, params L
 		return
 	}
 
+	linkedAccounts, err := h.resolveLinkedAccounts(r.Context(), assets)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, INTERNALERROR, "Failed to resolve linked accounts", requestID)
+		return
+	}
+
 	data := make([]AssetResponse, len(assets))
 	for i, a := range assets {
 		data[i] = assetToResponse(a)
+		attachLinkedAccount(&data[i], a, linkedAccounts)
 	}
 
 	WriteJSON(w, http.StatusOK, AssetListResponse{
@@ -112,6 +120,13 @@ func (h *AppHandler) GetAsset(w http.ResponseWriter, r *http.Request, id IdParam
 	resp := assetToResponse(*asset)
 	historyEntries := historyToEntries(id, history)
 	resp.History = &historyEntries
+
+	linkedAccounts, err := h.resolveLinkedAccounts(r.Context(), []models.Asset{*asset})
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, INTERNALERROR, "Failed to resolve linked account", requestID)
+		return
+	}
+	attachLinkedAccount(&resp, *asset, linkedAccounts)
 
 	WriteJSON(w, http.StatusOK, resp)
 }
@@ -382,6 +397,40 @@ func buildPortfolioSummary(allocation []queries.AllocationRow) PortfolioSummary 
 		TotalValue: float32(totalValue),
 		Allocation: entries,
 	}
+}
+
+func (h *AppHandler) resolveLinkedAccounts(ctx context.Context, assets []models.Asset) (map[string]queries.LinkedAccountRow, error) {
+	var accountIDs []string
+	for _, a := range assets {
+		if a.AccountID != nil {
+			accountIDs = append(accountIDs, *a.AccountID)
+		}
+	}
+	if len(accountIDs) == 0 {
+		return map[string]queries.LinkedAccountRow{}, nil
+	}
+	return h.assets.GetLinkedAccounts(ctx, accountIDs)
+}
+
+func attachLinkedAccount(resp *AssetResponse, asset models.Asset, linked map[string]queries.LinkedAccountRow) {
+	if asset.AccountID == nil {
+		return
+	}
+	row, ok := linked[*asset.AccountID]
+	if !ok {
+		return
+	}
+	summary := LinkedAccountSummary{
+		Id:          ParseID(row.AccountID),
+		Name:        row.Name,
+		AccountType: AccountType(row.AccountType),
+		Institution: &row.Institution,
+	}
+	if row.Balance != nil {
+		bal := float32(*row.Balance)
+		summary.Balance = &bal
+	}
+	resp.LinkedAccount = &summary
 }
 
 func assetJSON(asset *models.Asset) string {

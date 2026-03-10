@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from "react";
-import type { AssetType, CreateAssetRequest } from "@/api/client";
+import type { AssetType, AccountResponse, CreateAssetRequest } from "@/api/client";
 
 interface AssetFormProps {
   onSubmit: (data: CreateAssetRequest) => void;
   onCancel: () => void;
   isSubmitting?: boolean;
   initialValues?: Partial<CreateAssetRequest & { metadata?: Record<string, unknown> }>;
+  accounts?: AccountResponse[];
 }
 
 const assetTypes: { key: AssetType; label: string }[] = [
@@ -28,11 +29,13 @@ export default function AssetForm({
   onCancel,
   isSubmitting = false,
   initialValues,
+  accounts,
 }: AssetFormProps) {
   const meta = initialValues?.metadata ?? {};
   const [name, setName] = useState(initialValues?.name ?? "");
   const [assetType, setAssetType] = useState<AssetType>(initialValues?.asset_type ?? "liquid");
   const [currentValue, setCurrentValue] = useState(initialValues?.current_value?.toString() ?? "");
+  const [accountId, setAccountId] = useState(initialValues?.account_id ?? "");
 
   const [purchasePrice, setPurchasePrice] = useState(
     (meta.purchase_price as number)?.toString() ?? "",
@@ -66,6 +69,7 @@ export default function AssetForm({
       name,
       asset_type: assetType,
       current_value: parseFloat(currentValue),
+      ...(accountId ? { account_id: accountId } : {}),
     };
 
     if (assetType === "real_estate") {
@@ -137,6 +141,25 @@ export default function AssetForm({
           placeholder="0.00"
         />
       </FormField>
+
+      {accounts && accounts.length > 0 && (
+        <FormField label="Linked Account" htmlFor="asset-account">
+          <select
+            id="asset-account"
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            className="form-input"
+            style={inputStyle}
+          >
+            <option value="">None</option>
+            {accounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.institution} - {acc.name}
+              </option>
+            ))}
+          </select>
+        </FormField>
+      )}
 
       {assetType === "real_estate" && (
         <RealEstateFields

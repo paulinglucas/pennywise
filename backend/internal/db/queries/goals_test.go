@@ -44,6 +44,7 @@ func seedGoal(t *testing.T, repo *queries.SQLiteGoalRepository, id, userID, goal
 }
 
 func TestGoalCreate_And_GetByID(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -74,6 +75,7 @@ func TestGoalCreate_And_GetByID(t *testing.T) {
 }
 
 func TestGoalCreate_DebtPayoff(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -96,6 +98,7 @@ func TestGoalCreate_DebtPayoff(t *testing.T) {
 }
 
 func TestGoalGetByID_NotFound(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -105,6 +108,7 @@ func TestGoalGetByID_NotFound(t *testing.T) {
 }
 
 func TestGoalGetByID_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -116,6 +120,7 @@ func TestGoalGetByID_WrongUser(t *testing.T) {
 }
 
 func TestGoalList_OrderedByPriority(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -133,6 +138,7 @@ func TestGoalList_OrderedByPriority(t *testing.T) {
 }
 
 func TestGoalList_FiltersByUser(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -146,6 +152,7 @@ func TestGoalList_FiltersByUser(t *testing.T) {
 }
 
 func TestGoalList_Pagination(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -160,6 +167,7 @@ func TestGoalList_Pagination(t *testing.T) {
 }
 
 func TestGoalUpdate(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -181,6 +189,7 @@ func TestGoalUpdate(t *testing.T) {
 }
 
 func TestGoalUpdate_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -199,6 +208,7 @@ func TestGoalUpdate_WrongUser(t *testing.T) {
 }
 
 func TestGoalSoftDelete(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -214,6 +224,7 @@ func TestGoalSoftDelete(t *testing.T) {
 }
 
 func TestGoalSoftDelete_ExcludedFromList(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -232,6 +243,7 @@ func TestGoalSoftDelete_ExcludedFromList(t *testing.T) {
 }
 
 func TestGoalReorder(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -257,6 +269,7 @@ func TestGoalReorder(t *testing.T) {
 }
 
 func TestGoalReorder_NonexistentGoal_Fails(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -274,6 +287,7 @@ func TestGoalReorder_NonexistentGoal_Fails(t *testing.T) {
 }
 
 func TestGoalReorder_WrongUser_Fails(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -286,6 +300,7 @@ func TestGoalReorder_WrongUser_Fails(t *testing.T) {
 }
 
 func TestGoalNextPriorityRank(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	repo := queries.NewGoalRepository(database)
 
@@ -302,6 +317,7 @@ func TestGoalNextPriorityRank(t *testing.T) {
 }
 
 func TestGoalWithLinkedAccount(t *testing.T) {
+	t.Parallel()
 	database := setupGoalTestDB(t)
 	goalRepo := queries.NewGoalRepository(database)
 	accountRepo := queries.NewAccountRepository(database)

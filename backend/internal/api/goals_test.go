@@ -15,6 +15,7 @@ import (
 )
 
 func TestCreateGoal_Savings(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -36,6 +37,7 @@ func TestCreateGoal_Savings(t *testing.T) {
 }
 
 func TestCreateGoal_DebtPayoff(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -57,6 +59,7 @@ func TestCreateGoal_DebtPayoff(t *testing.T) {
 }
 
 func TestCreateGoal_MissingFields_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -69,6 +72,7 @@ func TestCreateGoal_MissingFields_Returns400(t *testing.T) {
 }
 
 func TestCreateGoal_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -80,6 +84,7 @@ func TestCreateGoal_InvalidJSON_Returns400(t *testing.T) {
 }
 
 func TestCreateGoal_AutoPriorityRank(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -105,6 +110,7 @@ func TestCreateGoal_AutoPriorityRank(t *testing.T) {
 }
 
 func TestListGoals_PriorityOrder(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -136,6 +142,7 @@ func TestListGoals_PriorityOrder(t *testing.T) {
 }
 
 func TestListGoals_UserScoping(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -170,6 +177,7 @@ func TestListGoals_UserScoping(t *testing.T) {
 }
 
 func TestListGoals_Pagination(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -195,6 +203,7 @@ func TestListGoals_Pagination(t *testing.T) {
 }
 
 func TestGetGoal_Found(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -219,6 +228,7 @@ func TestGetGoal_Found(t *testing.T) {
 }
 
 func TestGetGoal_NotFound(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -230,6 +240,7 @@ func TestGetGoal_NotFound(t *testing.T) {
 }
 
 func TestGetGoal_OtherUser_Returns404(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -253,6 +264,7 @@ func TestGetGoal_OtherUser_Returns404(t *testing.T) {
 }
 
 func TestUpdateGoal_ValidRequest(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -279,6 +291,7 @@ func TestUpdateGoal_ValidRequest(t *testing.T) {
 }
 
 func TestUpdateGoal_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -291,6 +304,7 @@ func TestUpdateGoal_NotFound_Returns404(t *testing.T) {
 }
 
 func TestDeleteGoal_SoftDeletes(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -324,6 +338,7 @@ func TestDeleteGoal_SoftDeletes(t *testing.T) {
 }
 
 func TestDeleteGoal_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -335,6 +350,7 @@ func TestDeleteGoal_NotFound_Returns404(t *testing.T) {
 }
 
 func TestReorderGoals_Success(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -373,6 +389,7 @@ func TestReorderGoals_Success(t *testing.T) {
 }
 
 func TestReorderGoals_NonexistentGoal_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -385,6 +402,7 @@ func TestReorderGoals_NonexistentGoal_Returns400(t *testing.T) {
 }
 
 func TestReorderGoals_EmptyRankings_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -397,6 +415,7 @@ func TestReorderGoals_EmptyRankings_Returns400(t *testing.T) {
 }
 
 func TestGoalComputedFields_GoalMet(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -416,6 +435,7 @@ func TestGoalComputedFields_GoalMet(t *testing.T) {
 }
 
 func TestGoalComputedFields_WithDeadline(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -433,6 +453,7 @@ func TestGoalComputedFields_WithDeadline(t *testing.T) {
 }
 
 func TestCreateGoal_AuditLogEntry(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -456,6 +477,7 @@ func TestCreateGoal_AuditLogEntry(t *testing.T) {
 }
 
 func TestUpdateGoal_AuditLogEntry(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -484,6 +506,7 @@ func TestUpdateGoal_AuditLogEntry(t *testing.T) {
 }
 
 func TestDeleteGoal_AuditLogEntry(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 

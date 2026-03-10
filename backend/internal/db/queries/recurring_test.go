@@ -38,6 +38,7 @@ func setupRecurringTestDB(t *testing.T) *sql.DB {
 }
 
 func TestRecurringCreate(t *testing.T) {
+	t.Parallel()
 	database := setupRecurringTestDB(t)
 	repo := queries.NewRecurringRepository(database)
 
@@ -66,6 +67,7 @@ func TestRecurringCreate(t *testing.T) {
 }
 
 func TestRecurringGetByID_NotFound(t *testing.T) {
+	t.Parallel()
 	database := setupRecurringTestDB(t)
 	repo := queries.NewRecurringRepository(database)
 
@@ -75,6 +77,7 @@ func TestRecurringGetByID_NotFound(t *testing.T) {
 }
 
 func TestRecurringGetByID_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupRecurringTestDB(t)
 	repo := queries.NewRecurringRepository(database)
 
@@ -98,6 +101,7 @@ func TestRecurringGetByID_WrongUser(t *testing.T) {
 }
 
 func TestRecurringList(t *testing.T) {
+	t.Parallel()
 	database := setupRecurringTestDB(t)
 	repo := queries.NewRecurringRepository(database)
 
@@ -124,6 +128,7 @@ func TestRecurringList(t *testing.T) {
 }
 
 func TestRecurringList_Pagination(t *testing.T) {
+	t.Parallel()
 	database := setupRecurringTestDB(t)
 	repo := queries.NewRecurringRepository(database)
 
@@ -150,6 +155,7 @@ func TestRecurringList_Pagination(t *testing.T) {
 }
 
 func TestRecurringList_UserScoping(t *testing.T) {
+	t.Parallel()
 	database := setupRecurringTestDB(t)
 	repo := queries.NewRecurringRepository(database)
 
@@ -180,6 +186,7 @@ func TestRecurringList_UserScoping(t *testing.T) {
 }
 
 func TestRecurringUpdate(t *testing.T) {
+	t.Parallel()
 	database := setupRecurringTestDB(t)
 	repo := queries.NewRecurringRepository(database)
 
@@ -203,6 +210,7 @@ func TestRecurringUpdate(t *testing.T) {
 }
 
 func TestRecurringUpdate_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupRecurringTestDB(t)
 	repo := queries.NewRecurringRepository(database)
 
@@ -220,6 +228,7 @@ func TestRecurringUpdate_WrongUser(t *testing.T) {
 }
 
 func TestRecurringSoftDelete(t *testing.T) {
+	t.Parallel()
 	database := setupRecurringTestDB(t)
 	repo := queries.NewRecurringRepository(database)
 
@@ -240,6 +249,7 @@ func TestRecurringSoftDelete(t *testing.T) {
 }
 
 func TestRecurringSoftDelete_ExcludedFromList(t *testing.T) {
+	t.Parallel()
 	database := setupRecurringTestDB(t)
 	repo := queries.NewRecurringRepository(database)
 

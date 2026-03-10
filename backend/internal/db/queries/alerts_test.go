@@ -13,6 +13,7 @@ import (
 const alertTestUserID = "usr00001-0000-0000-0000-000000000001"
 
 func TestAlertList_Empty(t *testing.T) {
+	t.Parallel()
 	database := setupTestDB(t)
 	repo := queries.NewAlertRepository(database)
 
@@ -23,6 +24,7 @@ func TestAlertList_Empty(t *testing.T) {
 }
 
 func TestAlertList_ReturnsUnread(t *testing.T) {
+	t.Parallel()
 	database := setupTestDB(t)
 	repo := queries.NewAlertRepository(database)
 
@@ -46,6 +48,7 @@ func TestAlertList_ReturnsUnread(t *testing.T) {
 }
 
 func TestAlertList_UserScoping(t *testing.T) {
+	t.Parallel()
 	database := setupTestDB(t)
 	repo := queries.NewAlertRepository(database)
 
@@ -74,6 +77,7 @@ func TestAlertList_UserScoping(t *testing.T) {
 }
 
 func TestAlertMarkRead(t *testing.T) {
+	t.Parallel()
 	database := setupTestDB(t)
 	repo := queries.NewAlertRepository(database)
 
@@ -93,6 +97,7 @@ func TestAlertMarkRead(t *testing.T) {
 }
 
 func TestAlertMarkRead_NotFound(t *testing.T) {
+	t.Parallel()
 	database := setupTestDB(t)
 	repo := queries.NewAlertRepository(database)
 
@@ -102,6 +107,7 @@ func TestAlertMarkRead_NotFound(t *testing.T) {
 }
 
 func TestAlertMarkRead_WrongUser(t *testing.T) {
+	t.Parallel()
 	database := setupTestDB(t)
 	repo := queries.NewAlertRepository(database)
 
@@ -123,6 +129,7 @@ func TestAlertMarkRead_WrongUser(t *testing.T) {
 }
 
 func TestAlertList_Pagination(t *testing.T) {
+	t.Parallel()
 	database := setupTestDB(t)
 	repo := queries.NewAlertRepository(database)
 

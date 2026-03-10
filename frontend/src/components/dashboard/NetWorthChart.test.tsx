@@ -56,7 +56,7 @@ describe("NetWorthChart", () => {
 
     const table = screen.getByRole("table", { name: "Net worth over time" });
     expect(table).toBeInTheDocument();
-    expect(table.className).toContain("sr-only");
+    expect(table.style.overflow).toBe("hidden");
 
     const rows = screen.getAllByRole("row");
     expect(rows.length).toBe(mockDataPoints.length + 1);

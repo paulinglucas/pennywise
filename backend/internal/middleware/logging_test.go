@@ -19,6 +19,7 @@ func newTestLogger(buf *bytes.Buffer) *slog.Logger {
 }
 
 func TestLogging_LogsRequestFields(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	logger := newTestLogger(&buf)
 
@@ -46,6 +47,7 @@ func TestLogging_LogsRequestFields(t *testing.T) {
 }
 
 func TestLogging_LogsStatusCode(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	logger := newTestLogger(&buf)
 
@@ -66,6 +68,7 @@ func TestLogging_LogsStatusCode(t *testing.T) {
 }
 
 func TestLogging_ServerErrorLogsAsError(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	logger := newTestLogger(&buf)
 
@@ -86,6 +89,7 @@ func TestLogging_ServerErrorLogsAsError(t *testing.T) {
 }
 
 func TestLogging_IncludesUserID(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	logger := newTestLogger(&buf)
 
@@ -109,6 +113,7 @@ func TestLogging_IncludesUserID(t *testing.T) {
 }
 
 func TestLogging_OmitsUserIDWhenMissing(t *testing.T) {
+	t.Parallel()
 	var buf bytes.Buffer
 	logger := newTestLogger(&buf)
 

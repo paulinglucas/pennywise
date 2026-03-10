@@ -34,6 +34,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 }
 
 func TestGetByEmail_ExistingUser(t *testing.T) {
+	t.Parallel()
 	database := setupTestDB(t)
 	repo := queries.NewUserRepository(database)
 
@@ -49,6 +50,7 @@ func TestGetByEmail_ExistingUser(t *testing.T) {
 }
 
 func TestGetByEmail_NotFound(t *testing.T) {
+	t.Parallel()
 	database := setupTestDB(t)
 	repo := queries.NewUserRepository(database)
 
@@ -59,6 +61,7 @@ func TestGetByEmail_NotFound(t *testing.T) {
 }
 
 func TestGetByID_ExistingUser(t *testing.T) {
+	t.Parallel()
 	database := setupTestDB(t)
 	repo := queries.NewUserRepository(database)
 
@@ -70,6 +73,7 @@ func TestGetByID_ExistingUser(t *testing.T) {
 }
 
 func TestGetByID_NotFound(t *testing.T) {
+	t.Parallel()
 	database := setupTestDB(t)
 	repo := queries.NewUserRepository(database)
 

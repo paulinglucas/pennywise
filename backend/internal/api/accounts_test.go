@@ -41,6 +41,7 @@ func authedRequest(method, path string, body string, cookie *http.Cookie) *http.
 }
 
 func TestCreateAccount_ValidRequest(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -62,6 +63,7 @@ func TestCreateAccount_ValidRequest(t *testing.T) {
 }
 
 func TestCreateAccount_MissingFields_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -74,6 +76,7 @@ func TestCreateAccount_MissingFields_Returns400(t *testing.T) {
 }
 
 func TestListAccounts_ReturnsOnlyCurrentUserAccounts(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -109,6 +112,7 @@ func TestListAccounts_ReturnsOnlyCurrentUserAccounts(t *testing.T) {
 }
 
 func TestGetAccount_ReturnsDetail(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -130,6 +134,7 @@ func TestGetAccount_ReturnsDetail(t *testing.T) {
 }
 
 func TestGetAccount_OtherUser_Returns404(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -153,6 +158,7 @@ func TestGetAccount_OtherUser_Returns404(t *testing.T) {
 }
 
 func TestGetAccount_SoftDeleted_Returns404(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -170,6 +176,7 @@ func TestGetAccount_SoftDeleted_Returns404(t *testing.T) {
 }
 
 func TestUpdateAccount_ValidRequest(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -194,6 +201,7 @@ func TestUpdateAccount_ValidRequest(t *testing.T) {
 }
 
 func TestDeleteAccount_SoftDeletes(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -225,6 +233,7 @@ func TestDeleteAccount_SoftDeletes(t *testing.T) {
 }
 
 func TestCreateAccount_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -240,6 +249,7 @@ func TestCreateAccount_InvalidJSON_Returns400(t *testing.T) {
 }
 
 func TestCreateAccount_WithCurrency(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -257,6 +267,7 @@ func TestCreateAccount_WithCurrency(t *testing.T) {
 }
 
 func TestUpdateAccount_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -273,6 +284,7 @@ func TestUpdateAccount_NotFound_Returns404(t *testing.T) {
 }
 
 func TestUpdateAccount_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -294,6 +306,7 @@ func TestUpdateAccount_InvalidJSON_Returns400(t *testing.T) {
 }
 
 func TestUpdateAccount_AllFields(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -320,6 +333,7 @@ func TestUpdateAccount_AllFields(t *testing.T) {
 }
 
 func TestDeleteAccount_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
 	_, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
@@ -335,6 +349,7 @@ func TestDeleteAccount_NotFound_Returns404(t *testing.T) {
 }
 
 func TestListAccounts_Pagination(t *testing.T) {
+	t.Parallel()
 	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 

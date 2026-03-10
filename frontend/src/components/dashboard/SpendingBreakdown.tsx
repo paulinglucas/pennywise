@@ -157,9 +157,9 @@ export default function SpendingBreakdown({
               total spent
             </span>
           </div>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-            <div className="flex-shrink-0" aria-hidden="true">
-              <ResponsiveContainer width={160} height={160}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+            <div className="aspect-square w-full max-w-[260px] flex-shrink-0" aria-hidden="true">
+              <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={categories}
@@ -167,8 +167,8 @@ export default function SpendingBreakdown({
                     nameKey="category"
                     cx="50%"
                     cy="50%"
-                    innerRadius={45}
-                    outerRadius={70}
+                    innerRadius="45%"
+                    outerRadius="75%"
                     strokeWidth={0}
                     animationDuration={600}
                   >
@@ -184,7 +184,19 @@ export default function SpendingBreakdown({
               <CategoryLegend categories={categories} />
             </div>
           </div>
-          <table className="sr-only">
+          <table
+            style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              padding: 0,
+              margin: -1,
+              overflow: "hidden",
+              clip: "rect(0,0,0,0)",
+              whiteSpace: "nowrap",
+              borderWidth: 0,
+            }}
+          >
             <caption>Spending breakdown by category</caption>
             <thead>
               <tr>

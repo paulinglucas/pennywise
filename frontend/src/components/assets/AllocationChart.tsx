@@ -59,9 +59,9 @@ export default function AllocationChart({ allocation }: AllocationChartProps) {
         </div>
       ) : (
         <>
-          <div className="flex flex-col items-center gap-4 lg:flex-row lg:items-start">
-            <div className="flex-shrink-0" aria-hidden="true">
-              <ResponsiveContainer width={180} height={180}>
+          <div className="flex flex-col items-center gap-4 lg:flex-row lg:items-center">
+            <div className="aspect-square w-full max-w-[260px] flex-shrink-0" aria-hidden="true">
+              <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={allocation}
@@ -69,8 +69,8 @@ export default function AllocationChart({ allocation }: AllocationChartProps) {
                     nameKey="asset_type"
                     cx="50%"
                     cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
+                    innerRadius="45%"
+                    outerRadius="75%"
                     strokeWidth={0}
                     animationDuration={600}
                   >
@@ -104,7 +104,19 @@ export default function AllocationChart({ allocation }: AllocationChartProps) {
               ))}
             </div>
           </div>
-          <table className="sr-only">
+          <table
+            style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              padding: 0,
+              margin: -1,
+              overflow: "hidden",
+              clip: "rect(0,0,0,0)",
+              whiteSpace: "nowrap",
+              borderWidth: 0,
+            }}
+          >
             <caption>Portfolio allocation by asset type</caption>
             <thead>
               <tr>
