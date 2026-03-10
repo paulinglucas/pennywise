@@ -19,9 +19,20 @@ type Account struct {
 	AccountType string
 	Currency    string
 	IsActive    bool
+	SimplefinID *string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   *time.Time
+}
+
+type SimplefinConnection struct {
+	ID         string
+	UserID     string
+	AccessURL  string
+	LastSyncAt *time.Time
+	SyncError  *string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 type Transaction struct {

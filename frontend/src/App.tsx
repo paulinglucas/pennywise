@@ -7,8 +7,10 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Transactions from "@/pages/Transactions";
 import Assets from "@/pages/Assets";
+import Accounts from "@/pages/Accounts";
 import Goals from "@/pages/Goals";
 import Projections from "@/pages/Projections";
+import Settings from "@/pages/Settings";
 
 function AuthLoadingSkeleton() {
   return (
@@ -54,8 +56,10 @@ export default function App() {
             <Route index element={<Dashboard />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="assets" element={<Assets />} />
+            <Route path="accounts" element={<Accounts />} />
             <Route path="goals" element={<Goals />} />
             <Route path="projections" element={<Projections />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

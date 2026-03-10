@@ -12,6 +12,9 @@ export type UpdateTransactionRequest = Schemas["UpdateTransactionRequest"];
 export type ImportResponse = Schemas["ImportResponse"];
 export type AccountResponse = Schemas["AccountResponse"];
 export type AccountListResponse = Schemas["AccountListResponse"];
+export type AccountType = Schemas["AccountType"];
+export type CreateAccountRequest = Schemas["CreateAccountRequest"];
+export type UpdateAccountRequest = Schemas["UpdateAccountRequest"];
 export type TransactionType = Schemas["TransactionType"];
 export type PaginationMeta = Schemas["PaginationMeta"];
 export type TransactionGroupResponse = Schemas["TransactionGroupResponse"];
@@ -245,6 +248,33 @@ export function listAccounts(page = 1, perPage = 100): Promise<AccountListResult
   return request<AccountListResult>(`/api/v1/accounts?page=${page}&per_page=${perPage}`);
 }
 
+type CreateAccountBody = paths["/accounts"]["post"]["requestBody"]["content"]["application/json"];
+type CreateAccountResult =
+  paths["/accounts"]["post"]["responses"]["201"]["content"]["application/json"];
+
+export function createAccount(body: CreateAccountBody): Promise<CreateAccountResult> {
+  return request<CreateAccountResult>("/api/v1/accounts", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+type UpdateAccountBody =
+  paths["/accounts/{id}"]["put"]["requestBody"]["content"]["application/json"];
+type UpdateAccountResult =
+  paths["/accounts/{id}"]["put"]["responses"]["200"]["content"]["application/json"];
+
+export function updateAccount(id: string, body: UpdateAccountBody): Promise<UpdateAccountResult> {
+  return request<UpdateAccountResult>(`/api/v1/accounts/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteAccount(id: string): Promise<void> {
+  return request<void>(`/api/v1/accounts/${id}`, { method: "DELETE" });
+}
+
 type CategoriesResult =
   paths["/categories"]["get"]["responses"]["200"]["content"]["application/json"];
 
@@ -453,4 +483,66 @@ export function computeProjection(body: ProjectionBody): Promise<ProjectionResul
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export interface SimplefinStatus {
+  connected: boolean;
+  last_sync_at?: string;
+  sync_error?: string;
+  linked_accounts: SimplefinLinkedAccount[];
+}
+
+export interface SimplefinLinkedAccount {
+  account_id: string;
+  simplefin_id: string;
+  account_name: string;
+  institution: string;
+}
+
+export interface SimplefinAccount {
+  id: string;
+  name: string;
+  institution: string;
+  balance: string;
+  currency: string;
+}
+
+export interface SimplefinSyncResult {
+  updated: number;
+  errors: number;
+  message: string;
+}
+
+export function getSimplefinStatus(): Promise<SimplefinStatus> {
+  return request<SimplefinStatus>("/api/v1/simplefin/status");
+}
+
+export function setupSimplefin(setupToken: string): Promise<{ status: string }> {
+  return request<{ status: string }>("/api/v1/simplefin/setup", {
+    method: "POST",
+    body: JSON.stringify({ setup_token: setupToken }),
+  });
+}
+
+export function disconnectSimplefin(): Promise<void> {
+  return request<void>("/api/v1/simplefin/", { method: "DELETE" });
+}
+
+export function listSimplefinAccounts(): Promise<{ accounts: SimplefinAccount[] }> {
+  return request<{ accounts: SimplefinAccount[] }>("/api/v1/simplefin/accounts");
+}
+
+export function linkSimplefinAccount(accountId: string, simplefinId: string): Promise<void> {
+  return request<void>("/api/v1/simplefin/link", {
+    method: "POST",
+    body: JSON.stringify({ account_id: accountId, simplefin_id: simplefinId }),
+  });
+}
+
+export function unlinkSimplefinAccount(accountId: string): Promise<void> {
+  return request<void>(`/api/v1/simplefin/link/${accountId}`, { method: "DELETE" });
+}
+
+export function triggerSimplefinSync(): Promise<SimplefinSyncResult> {
+  return request<SimplefinSyncResult>("/api/v1/simplefin/sync", { method: "POST" });
 }

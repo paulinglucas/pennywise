@@ -1,12 +1,23 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, ArrowLeftRight, PieChart, Target, TrendingUp } from "lucide-react";
+import {
+  LayoutDashboard,
+  ArrowLeftRight,
+  PieChart,
+  Landmark,
+  Target,
+  TrendingUp,
+  Settings,
+} from "lucide-react";
+import BrandLogo from "@/components/shared/BrandLogo";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/transactions", label: "Transactions", icon: ArrowLeftRight },
   { to: "/assets", label: "Assets", icon: PieChart },
+  { to: "/accounts", label: "Accounts", icon: Landmark },
   { to: "/goals", label: "Goals", icon: Target },
   { to: "/projections", label: "Projections", icon: TrendingUp },
+  { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 function navLinkClass({ isActive }: { isActive: boolean }): string {
@@ -40,11 +51,8 @@ export default function Sidebar() {
       }}
       aria-label="Main navigation"
     >
-      <div
-        className="mb-6 px-3 text-lg font-semibold tracking-wide"
-        style={{ color: "var(--color-accent)", textShadow: "0 0 20px var(--color-accent-muted)" }}
-      >
-        Pennywise
+      <div className="mb-6 px-3">
+        <BrandLogo />
       </div>
       {navItems.map((item) => (
         <NavLink

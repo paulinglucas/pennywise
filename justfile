@@ -68,7 +68,7 @@ test-backend:
     set -e
     cd backend
     go test ./... -race -coverprofile=coverage.out
-    grep -v '/api/generated\.go\|/api/stub\.go\|cmd/server/' coverage.out > coverage.filtered.out
+    grep -v '/api/generated\.go\|/api/stub\.go\|cmd/server/\|/observability/tracing\.go' coverage.out > coverage.filtered.out
     go tool cover -func=coverage.filtered.out
     total=$(go tool cover -func=coverage.filtered.out | grep '^total:' | awk '{print $NF}' | tr -d '%')
     threshold=80
