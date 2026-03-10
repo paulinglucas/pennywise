@@ -10,17 +10,20 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/jamespsullivan/pennywise/internal/api"
+	pennywisecrypto "github.com/jamespsullivan/pennywise/internal/crypto"
 	"github.com/jamespsullivan/pennywise/internal/db"
 	"github.com/jamespsullivan/pennywise/internal/db/queries"
 	"github.com/jamespsullivan/pennywise/internal/dlq"
 	"github.com/jamespsullivan/pennywise/internal/middleware"
 	"github.com/jamespsullivan/pennywise/internal/observability"
+	"github.com/jamespsullivan/pennywise/internal/simplefin"
 )
 
 func main() {
@@ -44,7 +47,11 @@ func runServer() {
 	database := openDatabase()
 	defer func() { _ = database.Close() }()
 
-	handler := buildRouter(logger, database)
+	handler, sfinScheduler := buildRouter(logger, database)
+	if sfinScheduler != nil {
+		sfinScheduler.Start()
+		defer sfinScheduler.Stop()
+	}
 
 	port := os.Getenv("PENNYWISE_PORT")
 	if port == "" {
@@ -102,7 +109,7 @@ func openDatabase() *sql.DB {
 	return database
 }
 
-func buildRouter(logger *slog.Logger, database *sql.DB) http.Handler {
+func buildRouter(logger *slog.Logger, database *sql.DB) (http.Handler, *simplefin.Scheduler) {
 	secret := jwtSecret()
 	userRepo := queries.NewUserRepository(database)
 	accountRepo := queries.NewAccountRepository(database)
@@ -137,11 +144,27 @@ func buildRouter(logger *slog.Logger, database *sql.DB) http.Handler {
 		Middlewares: []api.MiddlewareFunc{authMiddleware},
 	})
 
+	encKey := pennywisecrypto.DeriveKey(string(secret))
+	sfinRepo := simplefin.NewSimplefinRepository(database)
+	sfinClient := simplefin.NewClient(nil)
+	sfinSync := simplefin.NewSyncService(sfinClient, sfinRepo, encKey)
+	sfinHandler := simplefin.NewHandler(sfinRepo, sfinClient, sfinSync, encKey)
+	sfinRoutes := simplefin.Routes(sfinHandler, secret)
+
+	syncHour := 6
+	if h := os.Getenv("PENNYWISE_SYNC_HOUR"); h != "" {
+		if parsed, err := strconv.Atoi(h); err == nil && parsed >= 0 && parsed <= 23 {
+			syncHour = parsed
+		}
+	}
+	scheduler := simplefin.NewScheduler(sfinSync, syncHour)
+
 	root := chi.NewRouter()
 	root.Mount("/", apiHandler)
+	root.Mount("/api/v1/simplefin", sfinRoutes)
 	root.Handle("/metrics", observability.LocalhostOnly(observability.MetricsHandler()))
 
-	return root
+	return root, scheduler
 }
 
 func runMigrate() {

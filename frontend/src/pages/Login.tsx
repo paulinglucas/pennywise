@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useLogin, useRegister } from "@/hooks/useAuth";
 import { ApiError } from "@/api/client";
+import BrandLogo from "@/components/shared/BrandLogo";
 
 export default function Login() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -45,11 +46,8 @@ export default function Login() {
           boxShadow: "var(--glow-lg)",
         }}
       >
-        <h1
-          className="mb-8 text-center text-2xl font-semibold tracking-wide"
-          style={{ color: "var(--color-accent)", textShadow: "0 0 24px var(--color-accent-muted)" }}
-        >
-          Pennywise
+        <h1 className="mb-8 flex justify-center">
+          <BrandLogo size="lg" />
         </h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           {isRegistering && (

@@ -33,7 +33,7 @@ func (r *SQLiteAccountRepository) List(ctx context.Context, userID string, page,
 
 	offset := (page - 1) * perPage
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, user_id, name, institution, account_type, currency, is_active, created_at, updated_at
+		`SELECT id, user_id, name, institution, account_type, currency, is_active, simplefin_id, created_at, updated_at
 		 FROM accounts WHERE user_id = ? AND deleted_at IS NULL
 		 ORDER BY created_at DESC LIMIT ? OFFSET ?`,
 		userID, perPage, offset,
@@ -46,7 +46,7 @@ func (r *SQLiteAccountRepository) List(ctx context.Context, userID string, page,
 	var accounts []models.Account
 	for rows.Next() {
 		var a models.Account
-		if err := rows.Scan(&a.ID, &a.UserID, &a.Name, &a.Institution, &a.AccountType, &a.Currency, &a.IsActive, &a.CreatedAt, &a.UpdatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.UserID, &a.Name, &a.Institution, &a.AccountType, &a.Currency, &a.IsActive, &a.SimplefinID, &a.CreatedAt, &a.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		accounts = append(accounts, a)
@@ -76,10 +76,10 @@ func (r *SQLiteAccountRepository) GetByID(ctx context.Context, userID, id string
 
 	var a models.Account
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, name, institution, account_type, currency, is_active, created_at, updated_at
+		`SELECT id, user_id, name, institution, account_type, currency, is_active, simplefin_id, created_at, updated_at
 		 FROM accounts WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
 		id, userID,
-	).Scan(&a.ID, &a.UserID, &a.Name, &a.Institution, &a.AccountType, &a.Currency, &a.IsActive, &a.CreatedAt, &a.UpdatedAt)
+	).Scan(&a.ID, &a.UserID, &a.Name, &a.Institution, &a.AccountType, &a.Currency, &a.IsActive, &a.SimplefinID, &a.CreatedAt, &a.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
