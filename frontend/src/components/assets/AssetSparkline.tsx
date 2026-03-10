@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
 import { formatCurrency, formatDate } from "@/utils/formatting";
 import type { AssetHistoryEntry } from "@/api/client";
@@ -104,21 +105,36 @@ function todayDateString(): string {
   return `${y}-${m}-${day}`;
 }
 
-export default function AssetSparkline({ entries, currentValue, color, gradientId, period }: AssetSparklineProps) {
-  if (entries.length === 0) return null;
+export default function AssetSparkline({
+  entries,
+  currentValue,
+  color,
+  gradientId,
+  period,
+}: AssetSparklineProps) {
+  const [mountTime] = useState(() => Date.now());
 
-  const timeData = toTimeData(entries);
-  const now = Date.now();
-  const lastPoint = timeData[timeData.length - 1];
-  if (lastPoint && now - lastPoint.timestamp > 24 * 60 * 60 * 1000) {
-    timeData.push({ timestamp: now, date: todayDateString(), value: currentValue });
-  }
+  const chartData = useMemo(() => {
+    if (entries.length === 0) return null;
 
-  if (timeData.length < 2) return null;
+    const timeData = toTimeData(entries);
+    const lastPoint = timeData[timeData.length - 1];
+    if (lastPoint && mountTime - lastPoint.timestamp > 24 * 60 * 60 * 1000) {
+      timeData.push({ timestamp: mountTime, date: todayDateString(), value: currentValue });
+    }
 
-  const timestamps = timeData.map((d) => d.timestamp);
-  const dataMinTs = Math.min(...timestamps);
-  const [domainMin, domainMax] = domainForPeriod(period, dataMinTs);
+    if (timeData.length < 2) return null;
+
+    const timestamps = timeData.map((d) => d.timestamp);
+    const dataMinTs = Math.min(...timestamps);
+    const [domainMin, domainMax] = domainForPeriod(period, dataMinTs);
+
+    return { timeData, domainMin, domainMax };
+  }, [entries, currentValue, period, mountTime]);
+
+  if (!chartData) return null;
+
+  const { timeData, domainMin, domainMax } = chartData;
 
   return (
     <div className="mt-auto flex min-h-[60px] flex-1 items-end px-3 pb-3 pt-2" aria-hidden="true">

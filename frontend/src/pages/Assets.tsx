@@ -79,7 +79,8 @@ function AssetDetailTabs({
           className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors"
           style={{
             color: tab === "details" ? "var(--color-accent)" : "var(--color-text-secondary)",
-            borderBottom: tab === "details" ? "2px solid var(--color-accent)" : "2px solid transparent",
+            borderBottom:
+              tab === "details" ? "2px solid var(--color-accent)" : "2px solid transparent",
             marginBottom: -1,
           }}
         >
@@ -93,7 +94,8 @@ function AssetDetailTabs({
           className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors"
           style={{
             color: tab === "transactions" ? "var(--color-accent)" : "var(--color-text-secondary)",
-            borderBottom: tab === "transactions" ? "2px solid var(--color-accent)" : "2px solid transparent",
+            borderBottom:
+              tab === "transactions" ? "2px solid var(--color-accent)" : "2px solid transparent",
             marginBottom: -1,
           }}
         >
@@ -101,9 +103,7 @@ function AssetDetailTabs({
           Transactions
         </button>
       </div>
-      <div role="tabpanel">
-        {tab === "details" ? detailsContent : transactionsContent}
-      </div>
+      <div role="tabpanel">{tab === "details" ? detailsContent : transactionsContent}</div>
     </div>
   );
 }

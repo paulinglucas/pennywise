@@ -244,7 +244,13 @@ export default function AssetCard({
         )}
       </div>
       {historyEntries && historyPeriod && (
-        <AssetSparkline entries={historyEntries} currentValue={asset.current_value} color={color} gradientId={gradientId} period={historyPeriod} />
+        <AssetSparkline
+          entries={historyEntries}
+          currentValue={asset.current_value}
+          color={color}
+          gradientId={gradientId}
+          period={historyPeriod}
+        />
       )}
     </div>
   );

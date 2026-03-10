@@ -22,7 +22,13 @@ const mockEntries: AssetHistoryEntry[] = [
 describe("AssetSparkline", () => {
   it("renders nothing when entries are empty", () => {
     const { container } = render(
-      <AssetSparkline entries={[]} currentValue={10000} color="#22c55e" gradientId="test" period="6m" />,
+      <AssetSparkline
+        entries={[]}
+        currentValue={10000}
+        color="#22c55e"
+        gradientId="test"
+        period="6m"
+      />,
     );
     expect(container.firstChild).toBeNull();
   });
