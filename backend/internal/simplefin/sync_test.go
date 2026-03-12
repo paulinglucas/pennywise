@@ -70,7 +70,7 @@ func TestSyncUpdatesLinkedAssets(t *testing.T) {
 	repo, svc, server := setupSyncTest(t)
 	ctx := context.Background()
 
-	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL))
+	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL), nil)
 	require.NoError(t, err)
 	assert.Equal(t, 2, result.Updated)
 	assert.Equal(t, 0, result.Errors)
@@ -88,7 +88,7 @@ func TestSyncSkipsUnlinkedAccounts(t *testing.T) {
 	_, svc, server := setupSyncTest(t)
 	ctx := context.Background()
 
-	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL))
+	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL), nil)
 	require.NoError(t, err)
 	assert.Equal(t, 2, result.Updated)
 }
@@ -102,7 +102,7 @@ func TestSyncSkipsUnchangedValues(t *testing.T) {
 	err = repo.UpdateAssetValue(ctx, "asset2", 5200.50)
 	require.NoError(t, err)
 
-	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL))
+	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL), nil)
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.Updated)
 }
@@ -175,7 +175,7 @@ func TestSyncUserBadBalance(t *testing.T) {
 	client := NewClient(nil)
 	svc := NewSyncService(client, repo, encKey)
 
-	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL))
+	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL), nil)
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.Updated)
 	assert.Equal(t, 1, result.Errors)
@@ -204,7 +204,7 @@ func TestSyncUserLinkedAccountNoAsset(t *testing.T) {
 	client := NewClient(nil)
 	svc := NewSyncService(client, repo, encKey)
 
-	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL))
+	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL), nil)
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.Updated)
 	assert.Equal(t, 0, result.Errors)
@@ -245,7 +245,7 @@ func TestSyncDebtAccountUpdatesGoalNotAsset(t *testing.T) {
 	client := NewClient(nil)
 	svc := NewSyncService(client, repo, encKey)
 
-	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL))
+	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL), nil)
 	require.NoError(t, err)
 	assert.Equal(t, 2, result.Updated)
 	assert.Equal(t, 0, result.Errors)
@@ -292,7 +292,7 @@ func TestSyncDebtAccountNoGoalStillUpdatesBalance(t *testing.T) {
 	client := NewClient(nil)
 	svc := NewSyncService(client, repo, encKey)
 
-	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL))
+	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL), nil)
 	require.NoError(t, err)
 	assert.Equal(t, 1, result.Updated)
 	assert.Equal(t, 0, result.Errors)
@@ -334,7 +334,7 @@ func TestSyncUserNoLinkedAccounts(t *testing.T) {
 	client := NewClient(nil)
 	svc := NewSyncService(client, repo, encKey)
 
-	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL))
+	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL), nil)
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.Updated)
 }

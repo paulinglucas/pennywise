@@ -84,6 +84,7 @@ func TestMigrate(t *testing.T) {
 			"alerts",
 			"audit_log",
 			"failed_requests",
+			"dismissed_simplefin_accounts",
 			"schema_migrations",
 		}
 		for _, expected := range expectedTables {
@@ -100,7 +101,7 @@ func TestMigrate(t *testing.T) {
 		var count int
 		err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM schema_migrations").Scan(&count)
 		require.NoError(t, err)
-		assert.Equal(t, 17, count)
+		assert.Equal(t, 20, count)
 	})
 
 	t.Run("records applied migrations", func(t *testing.T) {
@@ -138,6 +139,9 @@ func TestMigrate(t *testing.T) {
 			"015_create_simplefin.sql",
 			"016_add_current_balance_to_accounts.sql",
 			"017_create_account_balance_history.sql",
+			"018_add_external_id_to_transactions.sql",
+			"019_create_dismissed_simplefin_accounts.sql",
+			"020_add_mortgage_fields_to_accounts.sql",
 		}, names)
 	})
 
@@ -160,6 +164,7 @@ func TestMigrate(t *testing.T) {
 			"idx_transaction_groups_user",
 			"idx_transaction_groups_deleted",
 			"idx_transactions_group",
+			"idx_transactions_account_external_id",
 		}
 		for _, expected := range expectedIndexes {
 			assert.Contains(t, indexes, expected, "missing index: %s", expected)
@@ -195,6 +200,7 @@ func TestMigrate(t *testing.T) {
 			"id", "user_id", "name", "institution", "account_type",
 			"currency", "is_active", "created_at", "updated_at", "deleted_at",
 			"original_balance", "simplefin_id", "current_balance",
+			"interest_rate", "loan_term_months", "purchase_price", "purchase_date", "down_payment_pct",
 		}, columns)
 	})
 
@@ -206,7 +212,7 @@ func TestMigrate(t *testing.T) {
 		assert.ElementsMatch(t, []string{
 			"id", "user_id", "account_id", "type", "category", "amount",
 			"currency", "date", "notes", "is_recurring", "recurring_transaction_id",
-			"group_id", "created_at", "updated_at", "deleted_at",
+			"group_id", "external_id", "created_at", "updated_at", "deleted_at",
 		}, columns)
 	})
 

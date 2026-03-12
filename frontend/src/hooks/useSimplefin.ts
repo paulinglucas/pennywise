@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { LinkSimplefinAccountRequest } from "@/api/client";
 import {
   getSimplefinStatus,
   setupSimplefin,
@@ -6,6 +7,8 @@ import {
   listSimplefinAccounts,
   linkSimplefinAccount,
   unlinkSimplefinAccount,
+  dismissSimplefinAccount,
+  undismissSimplefinAccount,
   triggerSimplefinSync,
 } from "@/api/client";
 
@@ -47,10 +50,11 @@ export function useDisconnectSimplefin() {
 export function useLinkSimplefinAccount() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ accountId, simplefinId }: { accountId: string; simplefinId: string }) =>
-      linkSimplefinAccount(accountId, simplefinId),
+    mutationFn: (req: LinkSimplefinAccountRequest) => linkSimplefinAccount(req),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["simplefin"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
     },
   });
 }
@@ -65,13 +69,35 @@ export function useUnlinkSimplefinAccount() {
   });
 }
 
+export function useDismissSimplefinAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (simplefinId: string) => dismissSimplefinAccount(simplefinId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["simplefin"] });
+    },
+  });
+}
+
+export function useUndismissSimplefinAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (simplefinId: string) => undismissSimplefinAccount(simplefinId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["simplefin"] });
+    },
+  });
+}
+
 export function useSyncSimplefin() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: triggerSimplefinSync,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["simplefin"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["assets"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });

@@ -36,14 +36,7 @@ const simplefinAccounts = {
     },
     { id: "sfin-2", name: "Savings", institution: "Ally", balance: "20000.00", currency: "USD" },
   ],
-};
-
-const accountsList = {
-  data: [
-    { id: "acc-1", name: "Checking", type: "checking" },
-    { id: "acc-2", name: "Savings", type: "savings" },
-  ],
-  pagination: { page: 1, per_page: 100, total: 2, total_pages: 1 },
+  dismissed: [],
 };
 
 beforeEach(() => {
@@ -134,7 +127,7 @@ describe("Settings", () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(accountsList),
+        json: () => Promise.resolve(connectedStatus),
       });
 
     renderWithProviders(<Settings />);
@@ -169,7 +162,7 @@ describe("Settings", () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(accountsList),
+        json: () => Promise.resolve(connectedStatus),
       });
 
     renderWithProviders(<Settings />);
@@ -208,7 +201,7 @@ describe("Settings", () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(accountsList),
+        json: () => Promise.resolve(connectedStatus),
       });
 
     renderWithProviders(<Settings />);
@@ -234,11 +227,6 @@ describe("Settings", () => {
         ok: true,
         status: 200,
         json: () => Promise.resolve(simplefinAccounts),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(accountsList),
       });
 
     vi.spyOn(window, "confirm").mockReturnValue(true);
@@ -288,11 +276,6 @@ describe("Settings", () => {
         ok: true,
         status: 200,
         json: () => Promise.resolve(simplefinAccounts),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(accountsList),
       });
 
     vi.spyOn(window, "confirm").mockReturnValue(false);
@@ -353,7 +336,7 @@ describe("Settings", () => {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(accountsList),
+          json: () => Promise.resolve(connectedStatus),
         });
       }
       return Promise.resolve({

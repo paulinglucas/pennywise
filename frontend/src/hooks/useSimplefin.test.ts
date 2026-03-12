@@ -149,17 +149,24 @@ describe("useDisconnectSimplefin", () => {
 });
 
 describe("useLinkSimplefinAccount", () => {
-  it("links a simplefin account", async () => {
+  it("links a simplefin account with auto-created local account", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: () => Promise.resolve(undefined),
+      json: () => Promise.resolve({ status: "linked", account_id: "new-acc-1" }),
     });
 
     const { result } = renderHook(() => useLinkSimplefinAccount(), { wrapper: createWrapper() });
 
     await act(async () => {
-      result.current.mutate({ accountId: "acc-1", simplefinId: "sfin-1" });
+      result.current.mutate({
+        simplefin_id: "sfin-1",
+        account_type: "checking",
+        name: "My Checking",
+        institution: "Test Bank",
+        balance: "1500.00",
+        currency: "USD",
+      });
     });
 
     await waitFor(() => {
@@ -170,8 +177,9 @@ describe("useLinkSimplefinAccount", () => {
     expect(url).toContain("/api/v1/simplefin/link");
     expect(options.method).toBe("POST");
     const body = JSON.parse(options.body as string);
-    expect(body.account_id).toBe("acc-1");
     expect(body.simplefin_id).toBe("sfin-1");
+    expect(body.account_type).toBe("checking");
+    expect(body.name).toBe("My Checking");
   });
 });
 

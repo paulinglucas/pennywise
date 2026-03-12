@@ -37,6 +37,8 @@ func Routes(handler *Handler, jwtSecret []byte) chi.Router {
 	r.Get("/accounts", handler.ListSimplefinAccounts)
 	r.Post("/link", handler.LinkAccount)
 	r.Delete("/link/{accountId}", handler.UnlinkAccount)
+	r.Post("/dismiss", handler.DismissAccount)
+	r.Delete("/dismiss/{simplefinId}", handler.UndismissAccount)
 	r.Post("/sync", handler.TriggerSync)
 	return r
 }
@@ -123,7 +125,13 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 
 	accounts := make([]linkedAccountResponse, len(linked))
 	for i, la := range linked {
-		accounts[i] = linkedAccountResponse(la)
+		accounts[i] = linkedAccountResponse{
+			AccountID:   la.AccountID,
+			SimplefinID: la.SimplefinID,
+			AccountName: la.AccountName,
+			Institution: la.Institution,
+			AccountType: la.AccountType,
+		}
 	}
 
 	writeJSON(w, http.StatusOK, fullStatus{
@@ -182,7 +190,7 @@ func (h *Handler) ListSimplefinAccounts(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	resp, err := h.client.FetchAccounts(r.Context(), username, password, baseURL)
+	resp, err := h.client.FetchAccounts(r.Context(), username, password, baseURL, nil)
 	if err != nil {
 		slog.Warn("failed to fetch SimpleFIN accounts", slog.Any("error", err))
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Failed to fetch accounts from SimpleFIN"})
@@ -191,12 +199,27 @@ func (h *Handler) ListSimplefinAccounts(w http.ResponseWriter, r *http.Request) 
 
 	accounts := deduplicateAccounts(resp.Accounts)
 
-	writeJSON(w, http.StatusOK, map[string]any{"accounts": accounts})
+	dismissed, err := h.repo.GetDismissedAccountIDs(r.Context(), userID)
+	if err != nil {
+		slog.Error("failed to get dismissed accounts", slog.Any("error", err))
+		dismissed = nil
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"accounts": accounts, "dismissed": dismissed})
 }
 
 type linkRequest struct {
-	AccountID   string `json:"account_id"`
-	SimplefinID string `json:"simplefin_id"`
+	SimplefinID    string   `json:"simplefin_id"`
+	AccountType    string   `json:"account_type"`
+	Name           string   `json:"name"`
+	Institution    string   `json:"institution"`
+	Balance        string   `json:"balance"`
+	Currency       string   `json:"currency"`
+	InterestRate   *float64 `json:"interest_rate,omitempty"`
+	LoanTermMonths *int     `json:"loan_term_months,omitempty"`
+	PurchasePrice  *float64 `json:"purchase_price,omitempty"`
+	PurchaseDate   *string  `json:"purchase_date,omitempty"`
+	DownPaymentPct *float64 `json:"down_payment_pct,omitempty"`
 }
 
 func (h *Handler) LinkAccount(w http.ResponseWriter, r *http.Request) {
@@ -208,18 +231,34 @@ func (h *Handler) LinkAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.AccountID == "" || req.SimplefinID == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "account_id and simplefin_id are required"})
+	if req.SimplefinID == "" || req.AccountType == "" || req.Name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "simplefin_id, account_type, and name are required"})
 		return
 	}
 
-	if err := h.repo.LinkAccount(r.Context(), userID, req.AccountID, req.SimplefinID); err != nil {
-		slog.Warn("failed to link account", slog.Any("error", err))
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Account not found"})
+	currency := req.Currency
+	if currency == "" {
+		currency = "USD"
+	}
+
+	balance, _ := strconv.ParseFloat(req.Balance, 64)
+
+	mortgageFields := &MortgageFields{
+		InterestRate:   req.InterestRate,
+		LoanTermMonths: req.LoanTermMonths,
+		PurchasePrice:  req.PurchasePrice,
+		PurchaseDate:   req.PurchaseDate,
+		DownPaymentPct: req.DownPaymentPct,
+	}
+
+	accountID, err := h.repo.CreateAccountWithLink(r.Context(), userID, req.Name, req.Institution, req.AccountType, currency, req.SimplefinID, balance, mortgageFields)
+	if err != nil {
+		slog.Warn("failed to create and link account", slog.Any("error", err))
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to link account"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "linked"})
+	writeJSON(w, http.StatusOK, map[string]string{"status": "linked", "account_id": accountID})
 }
 
 func (h *Handler) UnlinkAccount(w http.ResponseWriter, r *http.Request) {
@@ -235,10 +274,51 @@ func (h *Handler) UnlinkAccount(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "unlinked"})
 }
 
+type dismissRequest struct {
+	SimplefinID string `json:"simplefin_id"`
+}
+
+func (h *Handler) DismissAccount(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+
+	var req dismissRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	if req.SimplefinID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "simplefin_id is required"})
+		return
+	}
+
+	if err := h.repo.DismissAccount(r.Context(), userID, req.SimplefinID); err != nil {
+		slog.Error("failed to dismiss account", slog.Any("error", err))
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to dismiss"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "dismissed"})
+}
+
+func (h *Handler) UndismissAccount(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	simplefinID := chi.URLParam(r, "simplefinId")
+
+	if err := h.repo.UndismissAccount(r.Context(), userID, simplefinID); err != nil {
+		slog.Error("failed to undismiss account", slog.Any("error", err))
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to undismiss"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "undismissed"})
+}
+
 type syncResponse struct {
-	Updated int    `json:"updated"`
-	Errors  int    `json:"errors"`
-	Message string `json:"message"`
+	Updated              int    `json:"updated"`
+	Errors               int    `json:"errors"`
+	TransactionsImported int    `json:"transactions_imported"`
+	Message              string `json:"message"`
 }
 
 func (h *Handler) TriggerSync(w http.ResponseWriter, r *http.Request) {
@@ -257,7 +337,7 @@ func (h *Handler) TriggerSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.syncService.SyncUser(r.Context(), userID, accessURL)
+	result, err := h.syncService.SyncUser(r.Context(), userID, accessURL, conn.LastSyncAt)
 	if err != nil {
 		slog.Error("sync failed", slog.Any("error", err))
 		_ = h.repo.UpdateSyncError(r.Context(), userID, err.Error())
@@ -268,8 +348,9 @@ func (h *Handler) TriggerSync(w http.ResponseWriter, r *http.Request) {
 	_ = h.repo.UpdateSyncSuccess(r.Context(), userID)
 
 	writeJSON(w, http.StatusOK, syncResponse{
-		Updated: result.Updated,
-		Errors:  result.Errors,
+		Updated:              result.Updated,
+		Errors:               result.Errors,
+		TransactionsImported: result.TransactionsImported,
 		Message: "Sync complete",
 	})
 }

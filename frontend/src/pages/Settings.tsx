@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { RefreshCw, Link2, Unlink, Plug, Trash2 } from "lucide-react";
-import { useAccounts } from "@/hooks/useAccounts";
+import { RefreshCw, Link2, Unlink, Plug, Trash2, X, RotateCcw } from "lucide-react";
 import {
   useSimplefinStatus,
   useSimplefinAccounts,
@@ -8,9 +7,11 @@ import {
   useDisconnectSimplefin,
   useLinkSimplefinAccount,
   useUnlinkSimplefinAccount,
+  useDismissSimplefinAccount,
+  useUndismissSimplefinAccount,
   useSyncSimplefin,
 } from "@/hooks/useSimplefin";
-import type { SimplefinAccount } from "@/api/client";
+import type { SimplefinAccount, LinkSimplefinAccountRequest } from "@/api/client";
 import { formatDate } from "@/utils/formatting";
 
 function ConnectForm() {
@@ -75,23 +76,122 @@ function ConnectForm() {
   );
 }
 
-function AccountMapper({ simplefinAccounts }: { simplefinAccounts: SimplefinAccount[] }) {
-  const accountsQuery = useAccounts();
+const ACCOUNT_TYPE_OPTIONS = [
+  { value: "checking", label: "Checking" },
+  { value: "savings", label: "Savings" },
+  { value: "hysa", label: "HYSA" },
+  { value: "credit_card", label: "Credit Card" },
+  { value: "brokerage", label: "Brokerage" },
+  { value: "retirement_401k", label: "401(k)" },
+  { value: "retirement_ira", label: "IRA" },
+  { value: "retirement_roth_ira", label: "Roth IRA" },
+  { value: "rollover_ira", label: "Rollover IRA" },
+  { value: "hsa", label: "HSA" },
+  { value: "mortgage", label: "Mortgage" },
+  { value: "credit_line", label: "Credit Line" },
+  { value: "venmo", label: "Venmo" },
+  { value: "crypto_wallet", label: "Crypto Wallet" },
+] as const;
+
+function defaultAccountType(balance: string): string {
+  const num = parseFloat(balance);
+  if (!isNaN(num) && num < 0) return "credit_card";
+  return "checking";
+}
+
+interface MortgageInputProps {
+  label: string;
+  type: string;
+  placeholder?: string;
+  step?: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+function MortgageInput({ label, type, placeholder, step, value, onChange }: MortgageInputProps) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+        {label}
+      </span>
+      <input
+        type={type}
+        placeholder={placeholder}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-md px-2 py-1 text-sm tabular-nums"
+        style={{
+          backgroundColor: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+          color: "var(--color-text-primary)",
+        }}
+      />
+    </label>
+  );
+}
+
+interface AccountMapperProps {
+  simplefinAccounts: SimplefinAccount[];
+  dismissedIds: string[];
+}
+
+function AccountMapper({ simplefinAccounts, dismissedIds }: AccountMapperProps) {
   const statusQuery = useSimplefinStatus();
   const linkMutation = useLinkSimplefinAccount();
   const unlinkMutation = useUnlinkSimplefinAccount();
-  const [mapping, setMapping] = useState<Record<string, string>>({});
+  const dismissMutation = useDismissSimplefinAccount();
+  const undismissMutation = useUndismissSimplefinAccount();
+  const [typeMapping, setTypeMapping] = useState<Record<string, string>>({});
+  const [mortgageData, setMortgageData] = useState<
+    Record<string, Partial<Pick<LinkSimplefinAccountRequest, "interest_rate" | "loan_term_months" | "purchase_price" | "purchase_date" | "down_payment_pct">>>
+  >({});
+  const [showDismissed, setShowDismissed] = useState(false);
 
-  const accounts = accountsQuery.data?.data ?? [];
   const linkedAccounts = statusQuery.data?.linked_accounts ?? [];
-
   const linkedSimplefinIds = new Set(linkedAccounts.map((la) => la.simplefin_id));
-  const linkedAccountIds = new Set(linkedAccounts.map((la) => la.account_id));
+  const dismissedSet = new Set(dismissedIds);
 
-  function handleLink(simplefinId: string) {
-    const accountId = mapping[simplefinId];
-    if (!accountId) return;
-    linkMutation.mutate({ accountId, simplefinId });
+  const visibleAccounts = simplefinAccounts.filter(
+    (a) => !dismissedSet.has(a.id) || linkedSimplefinIds.has(a.id),
+  );
+  const dismissedAccounts = simplefinAccounts.filter(
+    (a) => dismissedSet.has(a.id) && !linkedSimplefinIds.has(a.id),
+  );
+
+  function handleLink(sfinAcct: SimplefinAccount) {
+    const accountType = typeMapping[sfinAcct.id] ?? defaultAccountType(sfinAcct.balance);
+    const req: LinkSimplefinAccountRequest = {
+      simplefin_id: sfinAcct.id,
+      account_type: accountType,
+      name: sfinAcct.name,
+      institution: sfinAcct.institution,
+      balance: sfinAcct.balance,
+      currency: sfinAcct.currency,
+    };
+
+    if (accountType === "mortgage") {
+      const md = mortgageData[sfinAcct.id];
+      if (md) {
+        req.interest_rate = md.interest_rate;
+        req.loan_term_months = md.loan_term_months;
+        req.purchase_price = md.purchase_price;
+        req.purchase_date = md.purchase_date;
+        req.down_payment_pct = md.down_payment_pct;
+      }
+    }
+
+    linkMutation.mutate(req);
+  }
+
+  function updateMortgageField(accountId: string, field: string, value: string) {
+    setMortgageData((prev) => ({
+      ...prev,
+      [accountId]: {
+        ...prev[accountId],
+        [field]: value === "" ? undefined : field === "purchase_date" ? value : parseFloat(value),
+      },
+    }));
   }
 
   return (
@@ -107,7 +207,7 @@ function AccountMapper({ simplefinAccounts }: { simplefinAccounts: SimplefinAcco
         Link Accounts
       </h3>
       <div className="flex flex-col gap-3">
-        {simplefinAccounts.map((sfinAcct) => {
+        {visibleAccounts.map((sfinAcct) => {
           const linked = linkedAccounts.find((la) => la.simplefin_id === sfinAcct.id);
 
           if (linked) {
@@ -124,7 +224,7 @@ function AccountMapper({ simplefinAccounts }: { simplefinAccounts: SimplefinAcco
                       {sfinAcct.name}
                     </p>
                     <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
-                      {sfinAcct.institution} — linked to {linked.account_name}
+                      {sfinAcct.institution} — {linked.account_type}
                     </p>
                   </div>
                 </div>
@@ -149,60 +249,153 @@ function AccountMapper({ simplefinAccounts }: { simplefinAccounts: SimplefinAcco
             );
           }
 
-          if (linkedSimplefinIds.has(sfinAcct.id)) return null;
-
-          const availableAccounts = accounts.filter((a) => !linkedAccountIds.has(a.id));
+          const selectedType = typeMapping[sfinAcct.id] ?? defaultAccountType(sfinAcct.balance);
+          const isMortgage = selectedType === "mortgage";
+          const md = mortgageData[sfinAcct.id] ?? {};
 
           return (
             <div
               key={sfinAcct.id}
-              className="flex items-center justify-between gap-3 rounded-md px-3 py-2"
+              className="flex flex-col gap-2 rounded-md px-3 py-2"
               style={{ backgroundColor: "var(--color-background)" }}
             >
-              <div className="min-w-0 flex-1">
-                <p className="text-sm" style={{ color: "var(--color-text-primary)" }}>
-                  {sfinAcct.name}
-                </p>
-                <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
-                  {sfinAcct.institution} — ${sfinAcct.balance}
-                </p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm" style={{ color: "var(--color-text-primary)" }}>
+                    {sfinAcct.name}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+                    {sfinAcct.institution} — ${sfinAcct.balance}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedType}
+                    onChange={(e) =>
+                      setTypeMapping((prev) => ({ ...prev, [sfinAcct.id]: e.target.value }))
+                    }
+                    className="rounded-md px-2 py-1 text-sm"
+                    style={{
+                      backgroundColor: "var(--color-surface)",
+                      border: "1px solid var(--color-border)",
+                      color: "var(--color-text-primary)",
+                    }}
+                  >
+                    {ACCOUNT_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => handleLink(sfinAcct)}
+                    disabled={linkMutation.isPending}
+                    className="rounded-md px-3 py-1 text-sm font-medium transition-all disabled:opacity-50"
+                    style={{
+                      backgroundColor: "var(--color-accent-muted)",
+                      color: "var(--color-accent)",
+                    }}
+                  >
+                    Link
+                  </button>
+                  <button
+                    onClick={() => dismissMutation.mutate(sfinAcct.id)}
+                    disabled={dismissMutation.isPending}
+                    className="rounded p-1 transition-colors"
+                    style={{ color: "var(--color-text-secondary)" }}
+                    title="Dismiss"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <select
-                  value={mapping[sfinAcct.id] ?? ""}
-                  onChange={(e) =>
-                    setMapping((prev) => ({ ...prev, [sfinAcct.id]: e.target.value }))
-                  }
-                  className="rounded-md px-2 py-1 text-sm"
-                  style={{
-                    backgroundColor: "var(--color-surface)",
-                    border: "1px solid var(--color-border)",
-                    color: "var(--color-text-primary)",
-                  }}
-                >
-                  <option value="">Select account</option>
-                  {availableAccounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => handleLink(sfinAcct.id)}
-                  disabled={!mapping[sfinAcct.id] || linkMutation.isPending}
-                  className="rounded-md px-3 py-1 text-sm font-medium transition-all disabled:opacity-50"
-                  style={{
-                    backgroundColor: "var(--color-accent-muted)",
-                    color: "var(--color-accent)",
-                  }}
-                >
-                  Link
-                </button>
-              </div>
+              {isMortgage && (
+                <div className="grid grid-cols-2 gap-2 pt-1 sm:grid-cols-3">
+                  <MortgageInput
+                    label="Purchase Price"
+                    type="number"
+                    placeholder="350000"
+                    value={md.purchase_price?.toString() ?? ""}
+                    onChange={(v) => updateMortgageField(sfinAcct.id, "purchase_price", v)}
+                  />
+                  <MortgageInput
+                    label="Purchase Date"
+                    type="date"
+                    value={md.purchase_date ?? ""}
+                    onChange={(v) => updateMortgageField(sfinAcct.id, "purchase_date", v)}
+                  />
+                  <MortgageInput
+                    label="Interest Rate (%)"
+                    type="number"
+                    placeholder="6.5"
+                    step="0.01"
+                    value={md.interest_rate?.toString() ?? ""}
+                    onChange={(v) => updateMortgageField(sfinAcct.id, "interest_rate", v)}
+                  />
+                  <MortgageInput
+                    label="Loan Term (months)"
+                    type="number"
+                    placeholder="360"
+                    value={md.loan_term_months?.toString() ?? ""}
+                    onChange={(v) => updateMortgageField(sfinAcct.id, "loan_term_months", v)}
+                  />
+                  <MortgageInput
+                    label="Down Payment (%)"
+                    type="number"
+                    placeholder="20"
+                    step="0.1"
+                    value={md.down_payment_pct?.toString() ?? ""}
+                    onChange={(v) => updateMortgageField(sfinAcct.id, "down_payment_pct", v)}
+                  />
+                </div>
+              )}
             </div>
           );
         })}
       </div>
+
+      {dismissedAccounts.length > 0 && (
+        <div className="mt-4">
+          <button
+            onClick={() => setShowDismissed(!showDismissed)}
+            className="text-xs"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            {showDismissed ? "Hide" : "Show"} {dismissedAccounts.length} dismissed account
+            {dismissedAccounts.length !== 1 ? "s" : ""}
+          </button>
+          {showDismissed && (
+            <div className="mt-2 flex flex-col gap-2">
+              {dismissedAccounts.map((sfinAcct) => (
+                <div
+                  key={sfinAcct.id}
+                  className="flex items-center justify-between rounded-md px-3 py-2 opacity-60"
+                  style={{ backgroundColor: "var(--color-background)" }}
+                >
+                  <div>
+                    <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                      {sfinAcct.name}
+                    </p>
+                    <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+                      {sfinAcct.institution} — ${sfinAcct.balance}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => undismissMutation.mutate(sfinAcct.id)}
+                    disabled={undismissMutation.isPending}
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors"
+                    style={{ color: "var(--color-text-secondary)" }}
+                    title="Restore"
+                  >
+                    <RotateCcw size={12} />
+                    Restore
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -286,6 +479,8 @@ function ConnectedStatus() {
             <p className="text-sm" style={{ color: "var(--color-accent)" }}>
               Updated {syncMutation.data.updated} account
               {syncMutation.data.updated !== 1 ? "s" : ""}
+              {syncMutation.data.transactions_imported > 0 &&
+                `, imported ${syncMutation.data.transactions_imported} transaction${syncMutation.data.transactions_imported !== 1 ? "s" : ""}`}
             </p>
           )}
 
@@ -297,7 +492,10 @@ function ConnectedStatus() {
       </div>
 
       {sfinAccountsQuery.data && (
-        <AccountMapper simplefinAccounts={sfinAccountsQuery.data.accounts} />
+        <AccountMapper
+          simplefinAccounts={sfinAccountsQuery.data.accounts}
+          dismissedIds={sfinAccountsQuery.data.dismissed ?? []}
+        />
       )}
     </div>
   );

@@ -268,7 +268,7 @@ func (r *DashboardRepository) getHistoricalPoints(ctx context.Context, userID st
 		           (SELECT abh.balance FROM account_balance_history abh
 		            WHERE abh.account_id = a2.id AND DATE(abh.recorded_at) <= ad.snap_date
 		            ORDER BY abh.recorded_at DESC LIMIT 1),
-		           a2.original_balance,
+		           CASE WHEN DATE(a2.created_at) <= ad.snap_date THEN a2.original_balance END,
 		           0
 		         ))
 		         FROM accounts a2
