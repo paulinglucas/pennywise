@@ -497,6 +497,7 @@ export interface SimplefinLinkedAccount {
   simplefin_id: string;
   account_name: string;
   institution: string;
+  account_type: string;
 }
 
 export interface SimplefinAccount {
@@ -510,6 +511,7 @@ export interface SimplefinAccount {
 export interface SimplefinSyncResult {
   updated: number;
   errors: number;
+  transactions_imported: number;
   message: string;
 }
 
@@ -528,14 +530,48 @@ export function disconnectSimplefin(): Promise<void> {
   return request<void>("/api/v1/simplefin/", { method: "DELETE" });
 }
 
-export function listSimplefinAccounts(): Promise<{ accounts: SimplefinAccount[] }> {
-  return request<{ accounts: SimplefinAccount[] }>("/api/v1/simplefin/accounts");
+export function listSimplefinAccounts(): Promise<{
+  accounts: SimplefinAccount[];
+  dismissed: string[] | null;
+}> {
+  return request<{ accounts: SimplefinAccount[]; dismissed: string[] | null }>(
+    "/api/v1/simplefin/accounts",
+  );
 }
 
-export function linkSimplefinAccount(accountId: string, simplefinId: string): Promise<void> {
-  return request<void>("/api/v1/simplefin/link", {
+export function dismissSimplefinAccount(simplefinId: string): Promise<{ status: string }> {
+  return request<{ status: string }>("/api/v1/simplefin/dismiss", {
     method: "POST",
-    body: JSON.stringify({ account_id: accountId, simplefin_id: simplefinId }),
+    body: JSON.stringify({ simplefin_id: simplefinId }),
+  });
+}
+
+export function undismissSimplefinAccount(simplefinId: string): Promise<{ status: string }> {
+  return request<{ status: string }>(`/api/v1/simplefin/dismiss/${simplefinId}`, {
+    method: "DELETE",
+  });
+}
+
+export interface LinkSimplefinAccountRequest {
+  simplefin_id: string;
+  account_type: string;
+  name: string;
+  institution: string;
+  balance: string;
+  currency: string;
+  interest_rate?: number;
+  loan_term_months?: number;
+  purchase_price?: number;
+  purchase_date?: string;
+  down_payment_pct?: number;
+}
+
+export function linkSimplefinAccount(
+  req: LinkSimplefinAccountRequest,
+): Promise<{ status: string; account_id: string }> {
+  return request<{ status: string; account_id: string }>("/api/v1/simplefin/link", {
+    method: "POST",
+    body: JSON.stringify(req),
   });
 }
 

@@ -16,6 +16,15 @@ type LinkedAccount struct {
 	AccountName string
 	Institution string
 	AccountType string
+	Currency    string
+}
+
+type MortgageFields struct {
+	InterestRate   *float64
+	LoanTermMonths *int
+	PurchasePrice  *float64
+	PurchaseDate   *string
+	DownPaymentPct *float64
 }
 
 type SQLiteSimplefinRepository struct {
@@ -130,7 +139,7 @@ func (r *SQLiteSimplefinRepository) UnlinkAccount(ctx context.Context, userID, a
 
 func (r *SQLiteSimplefinRepository) GetLinkedAccounts(ctx context.Context, userID string) ([]LinkedAccount, error) {
 	rows, err := r.db.QueryContext(ctx, //nolint:gosec // parameterized query
-		`SELECT id, simplefin_id, name, institution, account_type
+		`SELECT id, simplefin_id, name, institution, account_type, currency
 		 FROM accounts
 		 WHERE user_id = ? AND simplefin_id IS NOT NULL AND deleted_at IS NULL
 		 ORDER BY name`,
@@ -144,7 +153,7 @@ func (r *SQLiteSimplefinRepository) GetLinkedAccounts(ctx context.Context, userI
 	var linked []LinkedAccount
 	for rows.Next() {
 		var la LinkedAccount
-		if err := rows.Scan(&la.AccountID, &la.SimplefinID, &la.AccountName, &la.Institution, &la.AccountType); err != nil {
+		if err := rows.Scan(&la.AccountID, &la.SimplefinID, &la.AccountName, &la.Institution, &la.AccountType, &la.Currency); err != nil {
 			return nil, err
 		}
 		linked = append(linked, la)
@@ -193,6 +202,14 @@ func (r *SQLiteSimplefinRepository) UpdateAccountBalance(ctx context.Context, ac
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+
+	_, err = tx.ExecContext(ctx, //nolint:gosec // parameterized query
+		`UPDATE accounts SET original_balance = ? WHERE id = ? AND original_balance IS NULL`,
+		balance, accountID,
+	)
+	if err != nil {
+		return err
+	}
 
 	if err := r.backfillInitialBalance(ctx, tx, accountID); err != nil {
 		return err
@@ -297,6 +314,192 @@ func (r *SQLiteSimplefinRepository) UpdateDebtBalance(ctx context.Context, goalI
 		newBalance, goalID,
 	)
 	return err
+}
+
+func accountTypeToAssetType(accountType string) string {
+	switch accountType {
+	case "checking", "savings", "hysa", "venmo", "hsa":
+		return "liquid"
+	case "brokerage":
+		return "brokerage"
+	case "retirement_401k", "retirement_ira", "retirement_roth_ira", "rollover_ira":
+		return "retirement"
+	case "crypto_wallet":
+		return "speculative"
+	default:
+		return "other"
+	}
+}
+
+func (r *SQLiteSimplefinRepository) CreateAccountWithLink(ctx context.Context, userID, name, institution, accountType, currency, simplefinID string, balance float64, mortgage *MortgageFields) (string, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	accountID := uuid.New().String()
+
+	_, err = tx.ExecContext(ctx, //nolint:gosec // parameterized query
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, is_active, simplefin_id,
+		 interest_rate, loan_term_months, purchase_price, purchase_date, down_payment_pct)
+		 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`,
+		accountID, userID, name, institution, accountType, currency, simplefinID,
+		mortgage.InterestRate, mortgage.LoanTermMonths, mortgage.PurchasePrice, mortgage.PurchaseDate, mortgage.DownPaymentPct,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	if isDebtAccount(accountType) {
+		absBalance := balance
+		if absBalance < 0 {
+			absBalance = -absBalance
+		}
+		_, err = tx.ExecContext(ctx, //nolint:gosec // parameterized query
+			`UPDATE accounts SET original_balance = ?, current_balance = ? WHERE id = ?`,
+			absBalance, absBalance, accountID,
+		)
+		if err != nil {
+			return "", err
+		}
+
+		goalID := uuid.New().String()
+		_, err = tx.ExecContext(ctx, //nolint:gosec // parameterized query
+			`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, linked_account_id, priority_rank)
+			 VALUES (?, ?, ?, 'debt_payoff', ?, ?, ?, (SELECT COALESCE(MAX(priority_rank), 0) + 1 FROM goals WHERE user_id = ?))`,
+			goalID, userID, "Pay off "+name, absBalance, absBalance, accountID, userID,
+		)
+		if err != nil {
+			return "", err
+		}
+
+		_, err = tx.ExecContext(ctx, //nolint:gosec // parameterized query
+			`INSERT INTO account_balance_history (id, account_id, balance, recorded_at)
+			 VALUES (?, ?, ?, datetime('now'))`,
+			uuid.New().String(), accountID, absBalance,
+		)
+		if err != nil {
+			return "", err
+		}
+
+		if accountType == "mortgage" {
+			if err := r.createMortgageAsset(ctx, tx, userID, accountID, name, currency, mortgage); err != nil {
+				return "", err
+			}
+		}
+	} else {
+		assetType := accountTypeToAssetType(accountType)
+		assetID := uuid.New().String()
+		absBalance := balance
+		if absBalance < 0 {
+			absBalance = -absBalance
+		}
+
+		_, err = tx.ExecContext(ctx, //nolint:gosec // parameterized query
+			`INSERT INTO assets (id, user_id, account_id, name, asset_type, current_value, currency)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			assetID, userID, accountID, name, assetType, absBalance, currency,
+		)
+		if err != nil {
+			return "", err
+		}
+
+		_, err = tx.ExecContext(ctx, //nolint:gosec // parameterized query
+			`INSERT INTO asset_history (id, asset_id, value, recorded_at)
+			 VALUES (?, ?, ?, datetime('now'))`,
+			uuid.New().String(), assetID, absBalance,
+		)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return accountID, tx.Commit()
+}
+
+func (r *SQLiteSimplefinRepository) createMortgageAsset(ctx context.Context, tx *sql.Tx, userID, accountID, name, currency string, mortgage *MortgageFields) error {
+	if mortgage == nil || mortgage.PurchasePrice == nil {
+		return nil
+	}
+
+	assetID := uuid.New().String()
+	_, err := tx.ExecContext(ctx, //nolint:gosec // parameterized query
+		`INSERT INTO assets (id, user_id, account_id, name, asset_type, current_value, currency)
+		 VALUES (?, ?, ?, ?, 'real_estate', ?, ?)`,
+		assetID, userID, accountID, name+" (Home)", *mortgage.PurchasePrice, currency,
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, //nolint:gosec // parameterized query
+		`INSERT INTO asset_history (id, asset_id, value, recorded_at)
+		 VALUES (?, ?, ?, datetime('now'))`,
+		uuid.New().String(), assetID, *mortgage.PurchasePrice,
+	)
+	return err
+}
+
+func (r *SQLiteSimplefinRepository) BulkCreateSyncedTransactions(ctx context.Context, txns []models.Transaction) (int, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	imported := 0
+	for _, t := range txns {
+		result, err := tx.ExecContext(ctx, //nolint:gosec // parameterized query
+			`INSERT OR IGNORE INTO transactions (id, user_id, account_id, type, category, amount, currency, date, notes, is_recurring, external_id)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+			t.ID, t.UserID, t.AccountID, t.Type, t.Category, t.Amount, t.Currency, t.Date.Format("2006-01-02"), t.Notes, t.ExternalID,
+		)
+		if err != nil {
+			return imported, err
+		}
+		rows, _ := result.RowsAffected()
+		imported += int(rows)
+	}
+
+	return imported, tx.Commit()
+}
+
+func (r *SQLiteSimplefinRepository) DismissAccount(ctx context.Context, userID, simplefinID string) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT OR IGNORE INTO dismissed_simplefin_accounts (id, user_id, simplefin_id) VALUES (?, ?, ?)`,
+		uuid.New().String(), userID, simplefinID,
+	)
+	return err
+}
+
+func (r *SQLiteSimplefinRepository) UndismissAccount(ctx context.Context, userID, simplefinID string) error {
+	_, err := r.db.ExecContext(ctx,
+		`DELETE FROM dismissed_simplefin_accounts WHERE user_id = ? AND simplefin_id = ?`,
+		userID, simplefinID,
+	)
+	return err
+}
+
+func (r *SQLiteSimplefinRepository) GetDismissedAccountIDs(ctx context.Context, userID string) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT simplefin_id FROM dismissed_simplefin_accounts WHERE user_id = ?`,
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 func (r *SQLiteSimplefinRepository) UpdateAssetValue(ctx context.Context, assetID string, newValue float64) error {

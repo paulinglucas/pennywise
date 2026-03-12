@@ -6,15 +6,20 @@ import (
 	"log/slog"
 	"math"
 	"strconv"
+	"time"
+
+	"github.com/google/uuid"
 
 	pennywisecrypto "github.com/jamespsullivan/pennywise/internal/crypto"
+	"github.com/jamespsullivan/pennywise/internal/models"
 )
 
 type SyncResult struct {
-	UserID  string
-	Updated int
-	Errors  int
-	Error   error
+	UserID               string
+	Updated              int
+	Errors               int
+	TransactionsImported int
+	Error                error
 }
 
 type SyncService struct {
@@ -41,13 +46,25 @@ func isDebtAccount(accountType string) bool {
 	return debtAccountTypes[accountType]
 }
 
-func (s *SyncService) SyncUser(ctx context.Context, userID, accessURL string) (*SyncResult, error) {
+func computeStartDate(lastSyncAt *time.Time) *int64 {
+	var t time.Time
+	if lastSyncAt != nil {
+		t = lastSyncAt.Add(-24 * time.Hour)
+	} else {
+		t = time.Now().AddDate(0, 0, -90)
+	}
+	ts := t.Unix()
+	return &ts
+}
+
+func (s *SyncService) SyncUser(ctx context.Context, userID, accessURL string, lastSyncAt *time.Time) (*SyncResult, error) {
 	username, password, baseURL, err := ParseAccessURL(accessURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse access URL: %w", err)
 	}
 
-	resp, err := s.client.FetchAccounts(ctx, username, password, baseURL)
+	startDate := computeStartDate(lastSyncAt)
+	resp, err := s.client.FetchAccounts(ctx, username, password, baseURL, startDate)
 	if err != nil {
 		return nil, fmt.Errorf("fetch SimpleFIN accounts: %w", err)
 	}
@@ -80,10 +97,11 @@ func (s *SyncService) SyncUser(ctx context.Context, userID, accessURL string) (*
 
 		if isDebtAccount(la.AccountType) {
 			s.syncDebtBalance(ctx, la, balance, result)
-			continue
+		} else {
+			s.syncAssetAccount(ctx, userID, la, balance, result)
 		}
 
-		s.syncAssetAccount(ctx, userID, la, balance, result)
+		s.syncTransactions(ctx, userID, la.AccountID, la.Currency, sfinAccount.Transactions, result)
 	}
 
 	return result, nil
@@ -95,6 +113,17 @@ func (s *SyncService) syncDebtBalance(ctx context.Context, la LinkedAccount, bal
 		result.Errors++
 		return
 	}
+
+	goal, err := s.repo.GetDebtGoalForAccount(ctx, la.AccountID)
+	if err != nil {
+		slog.Warn("failed to get debt goal", slog.String("account_id", la.AccountID), slog.Any("error", err)) //nolint:gosec // account_id is internal DB value
+	}
+	if goal != nil {
+		if err := s.repo.UpdateDebtBalance(ctx, goal.ID, balance); err != nil {
+			slog.Warn("failed to update debt goal balance", slog.String("goal_id", goal.ID), slog.Any("error", err)) //nolint:gosec // goal_id is internal DB value
+		}
+	}
+
 	result.Updated++
 }
 
@@ -122,6 +151,67 @@ func (s *SyncService) syncAssetAccount(ctx context.Context, userID string, la Li
 	result.Updated++
 }
 
+func (s *SyncService) syncTransactions(ctx context.Context, userID, accountID, currency string, sfinTxns []Transaction, result *SyncResult) {
+	if len(sfinTxns) == 0 {
+		return
+	}
+
+	var txns []models.Transaction
+	for _, st := range sfinTxns {
+		if st.Pending {
+			continue
+		}
+
+		txn := mapSimplefinTransaction(st, userID, accountID, currency)
+		txns = append(txns, txn)
+	}
+
+	if len(txns) == 0 {
+		return
+	}
+
+	imported, err := s.repo.BulkCreateSyncedTransactions(ctx, txns)
+	if err != nil {
+		slog.Warn("failed to import transactions", slog.String("account_id", accountID), slog.Any("error", err)) //nolint:gosec // account_id is internal DB value
+		result.Errors++
+		return
+	}
+	result.TransactionsImported += imported
+}
+
+func mapSimplefinTransaction(st Transaction, userID, accountID, currency string) models.Transaction {
+	amount, _ := strconv.ParseFloat(st.Amount, 64)
+
+	txnType := "deposit"
+	if amount < 0 {
+		txnType = "expense"
+	}
+
+	description := st.Description
+	if description == "" {
+		description = st.Payee
+	}
+	var notes *string
+	if description != "" {
+		notes = &description
+	}
+
+	externalID := st.ID
+
+	return models.Transaction{
+		ID:         uuid.New().String(),
+		UserID:     userID,
+		AccountID:  accountID,
+		Type:       txnType,
+		Category:   categorizeTransaction(description),
+		Amount:     math.Abs(amount),
+		Currency:   currency,
+		Date:       time.Unix(st.Posted, 0),
+		Notes:      notes,
+		ExternalID: &externalID,
+	}
+}
+
 func (s *SyncService) SyncAll(ctx context.Context) []SyncResult {
 	connections, err := s.repo.GetAllConnections(ctx)
 	if err != nil {
@@ -140,7 +230,7 @@ func (s *SyncService) SyncAll(ctx context.Context) []SyncResult {
 			continue
 		}
 
-		result, err := s.SyncUser(ctx, conn.UserID, accessURL)
+		result, err := s.SyncUser(ctx, conn.UserID, accessURL, conn.LastSyncAt)
 		if err != nil {
 			slog.Error("sync failed", slog.String("user_id", conn.UserID), slog.Any("error", err))
 			_ = s.repo.UpdateSyncError(ctx, conn.UserID, err.Error())

@@ -12,17 +12,22 @@ type User struct {
 }
 
 type Account struct {
-	ID          string
-	UserID      string
-	Name        string
-	Institution string
-	AccountType string
-	Currency    string
-	IsActive    bool
-	SimplefinID *string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   *time.Time
+	ID             string
+	UserID         string
+	Name           string
+	Institution    string
+	AccountType    string
+	Currency       string
+	IsActive       bool
+	SimplefinID    *string
+	InterestRate   *float64
+	LoanTermMonths *int
+	PurchasePrice  *float64
+	PurchaseDate   *string
+	DownPaymentPct *float64
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	DeletedAt      *time.Time
 }
 
 type SimplefinConnection struct {
@@ -48,6 +53,7 @@ type Transaction struct {
 	IsRecurring            bool
 	RecurringTransactionID *string
 	GroupID                *string
+	ExternalID             *string
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 	DeletedAt              *time.Time

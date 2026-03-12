@@ -102,8 +102,12 @@ describe("Dashboard", () => {
     });
 
     expect(screen.getByText("Welcome to Pennywise")).toBeInTheDocument();
-    expect(screen.getByText("Add your accounts to get started.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Add Assets" })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Connect your bank accounts to automatically sync balances and transactions.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Connect Bank Accounts" })).toBeInTheDocument();
   });
 
   it("renders error state on API failure with retry button", async () => {

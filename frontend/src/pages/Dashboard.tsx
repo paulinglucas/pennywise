@@ -68,9 +68,9 @@ export default function Dashboard() {
         />
         <EmptyState
           title="Welcome to Pennywise"
-          description="Add your accounts to get started."
-          actionLabel="Add Assets"
-          actionTo="/assets"
+          description="Connect your bank accounts to automatically sync balances and transactions."
+          actionLabel="Connect Bank Accounts"
+          actionTo="/settings"
         />
       </div>
     );

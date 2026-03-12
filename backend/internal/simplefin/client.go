@@ -16,13 +16,25 @@ type AccountsResponse struct {
 }
 
 type Account struct {
-	ID               string `json:"id"`
-	Name             string `json:"name"`
-	Currency         string `json:"currency"`
-	Balance          string `json:"balance"`
-	AvailableBalance string `json:"available-balance"`
-	BalanceDate      int64  `json:"balance-date"`
-	Org              Org    `json:"org"`
+	ID               string          `json:"id"`
+	Name             string          `json:"name"`
+	Currency         string          `json:"currency"`
+	Balance          string          `json:"balance"`
+	AvailableBalance string          `json:"available-balance"`
+	BalanceDate      int64           `json:"balance-date"`
+	Org              Org             `json:"org"`
+	Transactions     []Transaction   `json:"transactions"`
+	Extra            json.RawMessage `json:"extra"`
+}
+
+type Transaction struct {
+	ID          string `json:"id"`
+	Posted      int64  `json:"posted"`
+	Amount      string `json:"amount"`
+	Description string `json:"description"`
+	Payee       string `json:"payee"`
+	Memo        string `json:"memo"`
+	Pending     bool   `json:"pending"`
 }
 
 type Org struct {
@@ -76,8 +88,11 @@ func (c *Client) ClaimToken(ctx context.Context, setupToken string) (string, err
 	return string(body), nil
 }
 
-func (c *Client) FetchAccounts(ctx context.Context, username, password, baseURL string) (*AccountsResponse, error) {
-	endpoint := baseURL + "/accounts?balances-only=1"
+func (c *Client) FetchAccounts(ctx context.Context, username, password, baseURL string, startDate *int64) (*AccountsResponse, error) {
+	endpoint := baseURL + "/accounts"
+	if startDate != nil {
+		endpoint += fmt.Sprintf("?start-date=%d", *startDate)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {

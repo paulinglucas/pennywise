@@ -139,10 +139,22 @@ func TestLinkAndListAccounts(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, repo.SaveConnection(context.Background(), "u1", encrypted))
 
-	req := authedRequest(t, http.MethodPost, "/link", linkRequest{AccountID: "a1", SimplefinID: "sfin-001"})
+	req := authedRequest(t, http.MethodPost, "/link", linkRequest{
+		SimplefinID: "sfin-001",
+		AccountType: "checking",
+		Name:        "Checking",
+		Institution: "My Bank",
+		Balance:     "1500.00",
+		Currency:    "USD",
+	})
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var linkResp map[string]string
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&linkResp))
+	assert.Equal(t, "linked", linkResp["status"])
+	assert.NotEmpty(t, linkResp["account_id"])
 
 	req = authedRequest(t, http.MethodGet, "/status", nil)
 	rec = httptest.NewRecorder()
@@ -262,27 +274,23 @@ func TestSetupInvalidBody(t *testing.T) {
 }
 
 func TestLinkMissingFields(t *testing.T) {
-	handler, repo, _ := setupHandlerTest(t)
+	handler, _, _ := setupHandlerTest(t)
 	router := Routes(handler, testSecret)
 
-	require.NoError(t, repo.SaveConnection(context.Background(), "u1", "enc"))
-
-	req := authedRequest(t, http.MethodPost, "/link", linkRequest{AccountID: "", SimplefinID: "sfin-001"})
+	req := authedRequest(t, http.MethodPost, "/link", linkRequest{SimplefinID: "", AccountType: "checking", Name: "Test"})
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
 
-func TestLinkNonexistentAccount(t *testing.T) {
-	handler, repo, _ := setupHandlerTest(t)
-	router := Routes(handler, testSecret)
-
-	require.NoError(t, repo.SaveConnection(context.Background(), "u1", "enc"))
-
-	req := authedRequest(t, http.MethodPost, "/link", linkRequest{AccountID: "nonexistent", SimplefinID: "sfin-001"})
-	rec := httptest.NewRecorder()
+	req = authedRequest(t, http.MethodPost, "/link", linkRequest{SimplefinID: "sfin-001", AccountType: "", Name: "Test"})
+	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	req = authedRequest(t, http.MethodPost, "/link", linkRequest{SimplefinID: "sfin-001", AccountType: "checking", Name: ""})
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 func TestListSimplefinAccounts(t *testing.T) {
@@ -336,16 +344,35 @@ func TestLinkInvalidBody(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
-func TestLinkMissingSimplefinID(t *testing.T) {
+func TestLinkCreatesDebtAccount(t *testing.T) {
 	handler, repo, _ := setupHandlerTest(t)
 	router := Routes(handler, testSecret)
 
 	require.NoError(t, repo.SaveConnection(context.Background(), "u1", "enc"))
 
-	req := authedRequest(t, http.MethodPost, "/link", linkRequest{AccountID: "a1", SimplefinID: ""})
+	req := authedRequest(t, http.MethodPost, "/link", linkRequest{
+		SimplefinID: "sfin-cc",
+		AccountType: "credit_card",
+		Name:        "Visa Card",
+		Institution: "Chase",
+		Balance:     "-500.00",
+		Currency:    "USD",
+	})
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	linked, err := repo.GetLinkedAccounts(context.Background(), "u1")
+	require.NoError(t, err)
+
+	found := false
+	for _, la := range linked {
+		if la.SimplefinID == "sfin-cc" {
+			found = true
+			assert.Equal(t, "credit_card", la.AccountType)
+		}
+	}
+	assert.True(t, found)
 }
 
 func TestDisconnectWhenNotConnected(t *testing.T) {

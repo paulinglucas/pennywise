@@ -56,7 +56,6 @@ func TestFetchAccounts(t *testing.T) {
 			return
 		}
 		assert.Equal(t, "/simplefin/accounts", r.URL.Path)
-		assert.Equal(t, "1", r.URL.Query().Get("balances-only"))
 
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
@@ -73,7 +72,18 @@ func TestFetchAccounts(t *testing.T) {
 						"domain": "mybank.com",
 						"name": "My Bank",
 						"id": "mybank"
-					}
+					},
+					"transactions": [
+						{
+							"id": "txn-001",
+							"posted": 1709856000,
+							"amount": "-25.50",
+							"description": "WALMART",
+							"payee": "Walmart",
+							"memo": "",
+							"pending": false
+						}
+					]
 				},
 				{
 					"id": "acc-002",
@@ -94,7 +104,8 @@ func TestFetchAccounts(t *testing.T) {
 
 	accessURL := server.URL + "/simplefin"
 	client := NewClient(nil)
-	resp, err := client.FetchAccounts(context.Background(), "testuser", "testpass", accessURL)
+	startDate := int64(1709000000)
+	resp, err := client.FetchAccounts(context.Background(), "testuser", "testpass", accessURL, &startDate)
 	require.NoError(t, err)
 	assert.Empty(t, resp.Errors)
 	require.Len(t, resp.Accounts, 2)
@@ -103,9 +114,26 @@ func TestFetchAccounts(t *testing.T) {
 	assert.Equal(t, "Checking", resp.Accounts[0].Name)
 	assert.Equal(t, "1234.56", resp.Accounts[0].Balance)
 	assert.Equal(t, "My Bank", resp.Accounts[0].Org.Name)
+	require.Len(t, resp.Accounts[0].Transactions, 1)
+	assert.Equal(t, "txn-001", resp.Accounts[0].Transactions[0].ID)
+	assert.Equal(t, "-25.50", resp.Accounts[0].Transactions[0].Amount)
 
 	assert.Equal(t, "acc-002", resp.Accounts[1].ID)
 	assert.Equal(t, "5000.00", resp.Accounts[1].Balance)
+}
+
+func TestFetchAccountsNilStartDate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Empty(t, r.URL.Query().Get("start-date"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"errors": [], "accounts": []}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(nil)
+	resp, err := client.FetchAccounts(context.Background(), "user", "pass", server.URL, nil)
+	require.NoError(t, err)
+	assert.Empty(t, resp.Accounts)
 }
 
 func TestFetchAccountsBadCredentials(t *testing.T) {
@@ -116,7 +144,7 @@ func TestFetchAccountsBadCredentials(t *testing.T) {
 
 	accessURL := server.URL + "/simplefin"
 	client := NewClient(nil)
-	_, err := client.FetchAccounts(context.Background(), "bad", "creds", accessURL)
+	_, err := client.FetchAccounts(context.Background(), "bad", "creds", accessURL, nil)
 	assert.Error(t, err)
 }
 
@@ -145,7 +173,7 @@ func TestFetchAccountsPaymentRequired(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(nil)
-	_, err := client.FetchAccounts(context.Background(), "user", "pass", server.URL)
+	_, err := client.FetchAccounts(context.Background(), "user", "pass", server.URL, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "subscription lapsed")
 }
@@ -170,7 +198,7 @@ func TestFetchAccountsUnexpectedStatus(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(nil)
-	_, err := client.FetchAccounts(context.Background(), "user", "pass", server.URL)
+	_, err := client.FetchAccounts(context.Background(), "user", "pass", server.URL, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected status")
 }
