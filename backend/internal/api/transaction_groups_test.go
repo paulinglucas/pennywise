@@ -209,6 +209,80 @@ func TestDeleteTransactionGroup_CascadesToMembers(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, getRec.Code)
 }
 
+func TestCreateTransactionGroup_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
+	router, cookie := setupGroupTests(t)
+
+	req := authedRequest(http.MethodPost, "/api/v1/transaction-groups", "not json", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestUpdateTransactionGroup_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
+	router, cookie := setupGroupTests(t)
+
+	body := `{"name":"Nope"}`
+	req := authedRequest(http.MethodPut, "/api/v1/transaction-groups/00000000-0000-0000-0000-000000000099", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestUpdateTransactionGroup_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
+	router, cookie := setupGroupTests(t)
+	created := createTestGroup(t, router, cookie)
+
+	req := authedRequest(http.MethodPut, fmt.Sprintf("/api/v1/transaction-groups/%s", created.Id), "not json", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestDeleteTransactionGroup_NotFound_Returns404(t *testing.T) {
+	t.Parallel()
+	router, cookie := setupGroupTests(t)
+
+	req := authedRequest(http.MethodDelete, "/api/v1/transaction-groups/00000000-0000-0000-0000-000000000099", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestCreateTransactionGroup_EmptyMembers_Returns400(t *testing.T) {
+	t.Parallel()
+	router, cookie := setupGroupTests(t)
+
+	body := `{"name":"Empty Group","members":[]}`
+	req := authedRequest(http.MethodPost, "/api/v1/transaction-groups", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestListTransactionGroups_Empty(t *testing.T) {
+	t.Parallel()
+	router, cookie := setupGroupTests(t)
+
+	req := authedRequest(http.MethodGet, "/api/v1/transaction-groups", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.TransactionGroupListResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Len(t, resp.Data, 0)
+	assert.Equal(t, 0, resp.Pagination.Total)
+}
+
 func TestListTransactions_FilterByGroupID(t *testing.T) {
 	t.Parallel()
 	router, cookie := setupGroupTests(t)
@@ -223,6 +297,69 @@ func TestListTransactions_FilterByGroupID(t *testing.T) {
 	var resp api.TransactionListResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.Len(t, resp.Data, 2)
+}
+
+func TestCreateTransactionGroup_WithTags(t *testing.T) {
+	t.Parallel()
+	router, cookie := setupGroupTests(t)
+
+	body := fmt.Sprintf(`{
+		"name": "Tagged Group",
+		"members": [
+			{"type":"deposit","category":"salary","amount":4000,"date":"2026-03-08","account_id":"%s","tags":["income","paycheck"]},
+			{"type":"deposit","category":"401k","amount":500,"date":"2026-03-08","account_id":"%s","tags":["retirement"]}
+		]
+	}`, txnTestAccountID, txnTestAccount2ID)
+
+	req := authedRequest(http.MethodPost, "/api/v1/transaction-groups", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.TransactionGroupResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, "Tagged Group", resp.Name)
+	assert.Len(t, resp.Members, 2)
+
+	foundIncomeTags := false
+	foundRetirementTag := false
+	for _, m := range resp.Members {
+		for _, tag := range m.Tags {
+			if tag == "income" {
+				foundIncomeTags = true
+			}
+			if tag == "retirement" {
+				foundRetirementTag = true
+			}
+		}
+	}
+	assert.True(t, foundIncomeTags)
+	assert.True(t, foundRetirementTag)
+}
+
+func TestUpdateTransactionGroup_WithNewMemberTags(t *testing.T) {
+	t.Parallel()
+	router, cookie := setupGroupTests(t)
+	created := createTestGroup(t, router, cookie)
+
+	body := fmt.Sprintf(`{
+		"members":[
+			{"type":"deposit","category":"salary","amount":4500,"date":"2026-03-08","account_id":"%s","tags":["monthly"]},
+			{"type":"deposit","category":"bonus","amount":1000,"date":"2026-03-08","account_id":"%s","tags":["quarterly"]}
+		]
+	}`, txnTestAccountID, txnTestAccount2ID)
+
+	req := authedRequest(http.MethodPut, fmt.Sprintf("/api/v1/transaction-groups/%s", created.Id), body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.TransactionGroupResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Len(t, resp.Members, 2)
+	assert.InDelta(t, 5500.0, float64(resp.Total), 0.01)
 }
 
 func TestTransactionResponse_IncludesGroupID(t *testing.T) {

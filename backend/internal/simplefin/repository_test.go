@@ -163,3 +163,102 @@ func TestGetAssetForAccountNotFound(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, asset)
 }
+
+func TestUpdateAssetValue(t *testing.T) {
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	err := repo.UpdateAssetValue(ctx, "asset1", 2500.0)
+	require.NoError(t, err)
+
+	asset, err := repo.GetAssetForAccount(ctx, "u1", "a1")
+	require.NoError(t, err)
+	require.NotNil(t, asset)
+	assert.Equal(t, 2500.0, asset.CurrentValue)
+}
+
+func TestGetDebtGoalForAccount(t *testing.T) {
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	_, err := repo.db.ExecContext(ctx, `INSERT INTO accounts (id, user_id, name, institution, account_type) VALUES ('cc1', 'u1', 'Credit Card', 'Bank', 'credit_card')`)
+	require.NoError(t, err)
+
+	_, err = repo.db.ExecContext(ctx,
+		`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, linked_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"goal1", "u1", "Pay CC", "debt_payoff", 5000, 3000, 1, "cc1",
+	)
+	require.NoError(t, err)
+
+	goal, err := repo.GetDebtGoalForAccount(ctx, "cc1")
+	require.NoError(t, err)
+	require.NotNil(t, goal)
+	assert.Equal(t, "goal1", goal.ID)
+	assert.Equal(t, 3000.0, goal.CurrentAmount)
+}
+
+func TestGetDebtGoalForAccountNotFound(t *testing.T) {
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	goal, err := repo.GetDebtGoalForAccount(ctx, "nonexistent")
+	require.NoError(t, err)
+	assert.Nil(t, goal)
+}
+
+func TestUpdateDebtBalance(t *testing.T) {
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	_, err := repo.db.ExecContext(ctx, `INSERT INTO accounts (id, user_id, name, institution, account_type) VALUES ('cc1', 'u1', 'CC', 'Bank', 'credit_card')`)
+	require.NoError(t, err)
+
+	_, err = repo.db.ExecContext(ctx,
+		`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, linked_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"goal1", "u1", "Pay CC", "debt_payoff", 5000, 3000, 1, "cc1",
+	)
+	require.NoError(t, err)
+
+	err = repo.UpdateDebtBalance(ctx, "goal1", 2500.0)
+	require.NoError(t, err)
+
+	goal, err := repo.GetDebtGoalForAccount(ctx, "cc1")
+	require.NoError(t, err)
+	require.NotNil(t, goal)
+	assert.Equal(t, 2500.0, goal.CurrentAmount)
+}
+
+func TestGetAllConnections(t *testing.T) {
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	conns, err := repo.GetAllConnections(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, conns)
+
+	err = repo.SaveConnection(ctx, "u1", "enc-url")
+	require.NoError(t, err)
+
+	conns, err = repo.GetAllConnections(ctx)
+	require.NoError(t, err)
+	require.Len(t, conns, 1)
+	assert.Equal(t, "u1", conns[0].UserID)
+}
+
+func TestDeleteConnectionClearsSimplefinIDs(t *testing.T) {
+	repo := setupTestDB(t)
+	ctx := context.Background()
+
+	err := repo.LinkAccount(ctx, "u1", "a1", "sfin-001")
+	require.NoError(t, err)
+
+	err = repo.SaveConnection(ctx, "u1", "enc-url")
+	require.NoError(t, err)
+
+	err = repo.DeleteConnection(ctx, "u1")
+	require.NoError(t, err)
+
+	linked, err := repo.GetLinkedAccounts(ctx, "u1")
+	require.NoError(t, err)
+	assert.Empty(t, linked)
+}

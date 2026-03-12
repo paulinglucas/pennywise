@@ -100,4 +100,67 @@ describe("TransactionFilters", () => {
     );
     expect(screen.getByLabelText("Type")).toBeInTheDocument();
   });
+
+  it("calls onFiltersChange when type filter changes", () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <TransactionFilters
+        filters={emptyFilters}
+        accounts={mockAccounts}
+        onFiltersChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "expense" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ type: "expense" }));
+  });
+
+  it("calls onFiltersChange when category filter changes", () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <TransactionFilters
+        filters={emptyFilters}
+        accounts={mockAccounts}
+        onFiltersChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "food" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ category: "food" }));
+  });
+
+  it("calls onFiltersChange when date from changes", () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <TransactionFilters
+        filters={emptyFilters}
+        accounts={mockAccounts}
+        onFiltersChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-01-01" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ date_from: "2026-01-01" }));
+  });
+
+  it("calls onFiltersChange when date to changes", () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <TransactionFilters
+        filters={emptyFilters}
+        accounts={mockAccounts}
+        onFiltersChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-12-31" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ date_to: "2026-12-31" }));
+  });
+
+  it("renders category options from hook", () => {
+    renderWithProviders(
+      <TransactionFilters
+        filters={emptyFilters}
+        accounts={mockAccounts}
+        onFiltersChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Category")).toBeInTheDocument();
+  });
 });

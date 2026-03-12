@@ -532,3 +532,241 @@ func TestDeleteGoal_AuditLogEntry(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
 }
+
+func TestGoalComputedFields_PastDeadline_NotOnTrack(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"Overdue Goal","goal_type":"savings","target_amount":10000,"current_amount":2000,"deadline":"2020-01-01"}`
+	req := authedRequest(http.MethodPost, "/api/v1/goals", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.GoalResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.NotNil(t, resp.OnTrack)
+	assert.False(t, *resp.OnTrack)
+	assert.Nil(t, resp.RequiredMonthlyContribution)
+}
+
+func TestGoalComputedFields_NoDeadline_NoProjection(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"Open Ended","goal_type":"savings","target_amount":50000,"current_amount":1000}`
+	req := authedRequest(http.MethodPost, "/api/v1/goals", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.GoalResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Nil(t, resp.OnTrack)
+	assert.Nil(t, resp.RequiredMonthlyContribution)
+	assert.Nil(t, resp.ProjectedCompletionDate)
+}
+
+func TestGoalComputedFields_ExceededTarget(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"Over Target","goal_type":"savings","target_amount":5000,"current_amount":7000}`
+	req := authedRequest(http.MethodPost, "/api/v1/goals", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.GoalResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.NotNil(t, resp.OnTrack)
+	assert.True(t, *resp.OnTrack)
+	require.NotNil(t, resp.RequiredMonthlyContribution)
+	assert.Equal(t, float32(0), *resp.RequiredMonthlyContribution)
+}
+
+func TestGoalComputedFields_FutureDeadlineZeroCurrent(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"Zero Progress","goal_type":"debt_payoff","target_amount":20000,"current_amount":0,"deadline":"2030-06-01"}`
+	req := authedRequest(http.MethodPost, "/api/v1/goals", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.GoalResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.NotNil(t, resp.RequiredMonthlyContribution)
+	assert.Greater(t, *resp.RequiredMonthlyContribution, float32(0))
+	require.NotNil(t, resp.OnTrack)
+	assert.False(t, *resp.OnTrack)
+	assert.Nil(t, resp.ProjectedCompletionDate)
+}
+
+func TestUpdateGoal_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	createBody := `{"name":"For Update","goal_type":"savings","target_amount":5000}`
+	createReq := authedRequest(http.MethodPost, "/api/v1/goals", createBody, cookie)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created api.GoalResponse
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+
+	updateReq := authedRequest(http.MethodPut, fmt.Sprintf("/api/v1/goals/%s", created.Id), "not json", cookie)
+	updateRec := httptest.NewRecorder()
+	router.ServeHTTP(updateRec, updateReq)
+
+	assert.Equal(t, http.StatusBadRequest, updateRec.Code)
+}
+
+func TestReorderGoals_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	req := authedRequest(http.MethodPut, "/api/v1/goals/reorder", "not json", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestCreateGoal_WithLinkedAccount(t *testing.T) {
+	t.Parallel()
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency) VALUES (?, ?, ?, ?, ?, ?)`,
+		"a1c0a101-0000-0000-0000-000000000001", "usr00001-0000-0000-0000-000000000001", "Mortgage", "BankCo", "mortgage", "USD",
+	)
+	require.NoError(t, err)
+
+	body := `{"name":"Pay Off Mortgage","goal_type":"debt_payoff","target_amount":200000,"linked_account_id":"a1c0a101-0000-0000-0000-000000000001"}`
+	req := authedRequest(http.MethodPost, "/api/v1/goals", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.GoalResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, "Pay Off Mortgage", resp.Name)
+	require.NotNil(t, resp.LinkedAccountId)
+}
+
+func TestGoalComputedFields_ProjectedCompletionDate(t *testing.T) {
+	t.Parallel()
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, deadline, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '-6 months'))`,
+		"a0000010-0000-0000-0000-000000000010", "usr00001-0000-0000-0000-000000000001",
+		"Projectable Goal", "savings", 10000, 5000, 1, "2030-01-01",
+	)
+	require.NoError(t, err)
+
+	req := authedRequest(http.MethodGet, "/api/v1/goals/a0000010-0000-0000-0000-000000000010", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.GoalResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.NotNil(t, resp.ProjectedCompletionDate)
+	assert.NotNil(t, resp.OnTrack)
+	assert.NotNil(t, resp.RequiredMonthlyContribution)
+}
+
+func TestCreateGoal_EmptyName_Returns400(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"","goal_type":"savings","target_amount":5000}`
+	req := authedRequest(http.MethodPost, "/api/v1/goals", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestUpdateGoal_AllFields(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	createBody := `{"name":"Original","goal_type":"savings","target_amount":5000}`
+	createReq := authedRequest(http.MethodPost, "/api/v1/goals", createBody, cookie)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created api.GoalResponse
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+
+	updateBody := `{"name":"Renamed","goal_type":"debt_payoff","target_amount":10000,"current_amount":3000,"deadline":"2028-12-31","priority_rank":5}`
+	updateReq := authedRequest(http.MethodPut, fmt.Sprintf("/api/v1/goals/%s", created.Id), updateBody, cookie)
+	updateRec := httptest.NewRecorder()
+	router.ServeHTTP(updateRec, updateReq)
+
+	assert.Equal(t, http.StatusOK, updateRec.Code)
+
+	var resp api.GoalResponse
+	require.NoError(t, json.Unmarshal(updateRec.Body.Bytes(), &resp))
+	assert.Equal(t, "Renamed", resp.Name)
+	assert.Equal(t, api.DebtPayoff, resp.GoalType)
+	assert.Equal(t, float32(10000), resp.TargetAmount)
+	assert.Equal(t, float32(3000), resp.CurrentAmount)
+	assert.NotNil(t, resp.Deadline)
+	assert.Equal(t, 5, resp.PriorityRank)
+}
+
+func TestUpdateGoal_WithLinkedAccount(t *testing.T) {
+	t.Parallel()
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency) VALUES (?, ?, ?, ?, ?, ?)`,
+		"a1c0a201-0000-0000-0000-000000000001", "usr00001-0000-0000-0000-000000000001", "Linked Savings", "BankCo", "savings", "USD",
+	)
+	require.NoError(t, err)
+
+	createBody := `{"name":"Link Test","goal_type":"savings","target_amount":5000}`
+	createReq := authedRequest(http.MethodPost, "/api/v1/goals", createBody, cookie)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created api.GoalResponse
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+
+	updateBody := `{"linked_account_id":"a1c0a201-0000-0000-0000-000000000001"}`
+	updateReq := authedRequest(http.MethodPut, fmt.Sprintf("/api/v1/goals/%s", created.Id), updateBody, cookie)
+	updateRec := httptest.NewRecorder()
+	router.ServeHTTP(updateRec, updateReq)
+
+	assert.Equal(t, http.StatusOK, updateRec.Code)
+
+	var resp api.GoalResponse
+	require.NoError(t, json.Unmarshal(updateRec.Body.Bytes(), &resp))
+	require.NotNil(t, resp.LinkedAccountId)
+}

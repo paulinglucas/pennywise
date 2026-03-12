@@ -30,7 +30,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Register a new user (max 2 users) */
+        /** Register a new user (max 10 users) */
         post: operations["postAuthRegister"];
         delete?: never;
         options?: never;

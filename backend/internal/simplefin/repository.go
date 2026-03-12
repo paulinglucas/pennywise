@@ -15,6 +15,7 @@ type LinkedAccount struct {
 	SimplefinID string
 	AccountName string
 	Institution string
+	AccountType string
 }
 
 type SQLiteSimplefinRepository struct {
@@ -129,7 +130,7 @@ func (r *SQLiteSimplefinRepository) UnlinkAccount(ctx context.Context, userID, a
 
 func (r *SQLiteSimplefinRepository) GetLinkedAccounts(ctx context.Context, userID string) ([]LinkedAccount, error) {
 	rows, err := r.db.QueryContext(ctx, //nolint:gosec // parameterized query
-		`SELECT id, simplefin_id, name, institution
+		`SELECT id, simplefin_id, name, institution, account_type
 		 FROM accounts
 		 WHERE user_id = ? AND simplefin_id IS NOT NULL AND deleted_at IS NULL
 		 ORDER BY name`,
@@ -143,7 +144,7 @@ func (r *SQLiteSimplefinRepository) GetLinkedAccounts(ctx context.Context, userI
 	var linked []LinkedAccount
 	for rows.Next() {
 		var la LinkedAccount
-		if err := rows.Scan(&la.AccountID, &la.SimplefinID, &la.AccountName, &la.Institution); err != nil {
+		if err := rows.Scan(&la.AccountID, &la.SimplefinID, &la.AccountName, &la.Institution, &la.AccountType); err != nil {
 			return nil, err
 		}
 		linked = append(linked, la)
@@ -184,6 +185,118 @@ func (r *SQLiteSimplefinRepository) GetAssetForAccount(ctx context.Context, user
 		return nil, err
 	}
 	return &asset, nil
+}
+
+func (r *SQLiteSimplefinRepository) UpdateAccountBalance(ctx context.Context, accountID string, balance float64) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if err := r.backfillInitialBalance(ctx, tx, accountID); err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, //nolint:gosec // parameterized query
+		`UPDATE accounts SET current_balance = ?, updated_at = datetime('now') WHERE id = ?`,
+		balance, accountID,
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, //nolint:gosec // parameterized query
+		`INSERT INTO account_balance_history (id, account_id, balance, recorded_at)
+		 VALUES (?, ?, ?, datetime('now'))`,
+		uuid.New().String(), accountID, balance,
+	)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *SQLiteSimplefinRepository) backfillInitialBalance(ctx context.Context, tx *sql.Tx, accountID string) error {
+	var exists bool
+	err := tx.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM account_balance_history WHERE account_id = ?)`,
+		accountID,
+	).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	var originalBalance sql.NullFloat64
+	err = tx.QueryRowContext(ctx,
+		`SELECT original_balance FROM accounts WHERE id = ?`,
+		accountID,
+	).Scan(&originalBalance)
+	if err != nil {
+		return err
+	}
+
+	if !originalBalance.Valid {
+		return nil
+	}
+
+	var startDate sql.NullString
+	err = tx.QueryRowContext(ctx,
+		`SELECT MIN(ah.recorded_at) FROM asset_history ah
+		 JOIN assets a ON a.id = ah.asset_id
+		 WHERE a.account_id = ?`,
+		accountID,
+	).Scan(&startDate)
+	if err != nil {
+		return err
+	}
+
+	recordedAt := startDate.String
+	if !startDate.Valid || recordedAt == "" {
+		err = tx.QueryRowContext(ctx,
+			`SELECT created_at FROM accounts WHERE id = ?`,
+			accountID,
+		).Scan(&recordedAt)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = tx.ExecContext(ctx, //nolint:gosec // parameterized query
+		`INSERT INTO account_balance_history (id, account_id, balance, recorded_at)
+		 VALUES (?, ?, ?, ?)`,
+		uuid.New().String(), accountID, originalBalance.Float64, recordedAt,
+	)
+	return err
+}
+
+func (r *SQLiteSimplefinRepository) GetDebtGoalForAccount(ctx context.Context, accountID string) (*models.Goal, error) {
+	var goal models.Goal
+	err := r.db.QueryRowContext(ctx,
+		`SELECT id, user_id, name, goal_type, target_amount, current_amount, deadline, linked_account_id, priority_rank, created_at, updated_at
+		 FROM goals
+		 WHERE linked_account_id = ? AND goal_type = 'debt_payoff' AND deleted_at IS NULL`,
+		accountID,
+	).Scan(&goal.ID, &goal.UserID, &goal.Name, &goal.GoalType, &goal.TargetAmount, &goal.CurrentAmount, &goal.Deadline, &goal.LinkedAccountID, &goal.PriorityRank, &goal.CreatedAt, &goal.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &goal, nil
+}
+
+func (r *SQLiteSimplefinRepository) UpdateDebtBalance(ctx context.Context, goalID string, newBalance float64) error {
+	_, err := r.db.ExecContext(ctx, //nolint:gosec // parameterized query
+		`UPDATE goals SET current_amount = ?, updated_at = datetime('now') WHERE id = ?`,
+		newBalance, goalID,
+	)
+	return err
 }
 
 func (r *SQLiteSimplefinRepository) UpdateAssetValue(ctx context.Context, assetID string, newValue float64) error {

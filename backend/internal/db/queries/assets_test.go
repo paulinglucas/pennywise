@@ -330,14 +330,8 @@ func TestGetLinkedAccounts_ReturnsAccountWithDebtBalance(t *testing.T) {
 	repo := queries.NewAssetRepository(database)
 
 	_, err := database.ExecContext(context.Background(),
-		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"acc-mortgage-001", assetTestUserID, "Home Loan", "Bank", "mortgage", "USD", 300000.0,
-	)
-	require.NoError(t, err)
-
-	_, err = database.ExecContext(context.Background(),
-		`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, linked_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"goal-mortgage-001", assetTestUserID, "Pay off mortgage", "debt_payoff", 300000, 250000, 1, "acc-mortgage-001",
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance, current_balance) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"acc-mortgage-001", assetTestUserID, "Home Loan", "Bank", "mortgage", "USD", 300000.0, 250000.0,
 	)
 	require.NoError(t, err)
 

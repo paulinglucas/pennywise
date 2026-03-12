@@ -139,4 +139,49 @@ describe("ScenarioSliders", () => {
       oneTimeEvents: [],
     });
   });
+
+  it("opens add event form when Add Event is clicked", () => {
+    renderWithProviders(<ScenarioSliders params={defaultParams} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText("Add Event"));
+    expect(screen.getByText("Add")).toBeInTheDocument();
+    expect(screen.getByText("Cancel")).toBeInTheDocument();
+  });
+
+  it("closes add event form when Cancel is clicked", () => {
+    renderWithProviders(<ScenarioSliders params={defaultParams} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText("Add Event"));
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(screen.getByText("Add Event")).toBeInTheDocument();
+  });
+
+  it("adds a one-time event via the form", () => {
+    const onChange = vi.fn();
+    renderWithProviders(<ScenarioSliders params={defaultParams} onChange={onChange} />);
+    fireEvent.click(screen.getByText("Add Event"));
+
+    const amountInput = screen.getByPlaceholderText("Amount");
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+
+    fireEvent.change(amountInput, { target: { value: "25000" } });
+    fireEvent.change(dateInput, { target: { value: "2027-06-01" } });
+
+    fireEvent.click(screen.getByText("Add"));
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oneTimeEvents: expect.arrayContaining([
+          expect.objectContaining({
+            amount: 25000,
+            date: "2027-06-01",
+          }),
+        ]),
+      }),
+    );
+  });
+
+  it("shows negative savings adjustment formatting", () => {
+    const params: ProjectionParams = { ...defaultParams, monthlySavingsAdjustment: -20 };
+    renderWithProviders(<ScenarioSliders params={params} onChange={vi.fn()} />);
+    expect(screen.getByText("-20%")).toBeInTheDocument();
+  });
 });

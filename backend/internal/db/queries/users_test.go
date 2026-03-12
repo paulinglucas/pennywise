@@ -10,6 +10,7 @@ import (
 
 	"github.com/jamespsullivan/pennywise/internal/db"
 	"github.com/jamespsullivan/pennywise/internal/db/queries"
+	"github.com/jamespsullivan/pennywise/internal/models"
 )
 
 func setupTestDB(t *testing.T) *sql.DB {
@@ -81,4 +82,55 @@ func TestGetByID_NotFound(t *testing.T) {
 
 	assert.ErrorIs(t, err, queries.ErrUserNotFound)
 	assert.Nil(t, user)
+}
+
+func TestCountUsers(t *testing.T) {
+	t.Parallel()
+	database := setupTestDB(t)
+	repo := queries.NewUserRepository(database)
+
+	count, err := repo.CountUsers(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+}
+
+func TestCreateUser_Success(t *testing.T) {
+	t.Parallel()
+	database := setupTestDB(t)
+	repo := queries.NewUserRepository(database)
+
+	user := &models.User{
+		ID:           "usr00002-0000-0000-0000-000000000002",
+		Email:        "newuser@example.com",
+		Name:         "New User",
+		PasswordHash: "$2a$10$somehashedpass",
+	}
+
+	err := repo.CreateUser(context.Background(), user)
+	require.NoError(t, err)
+
+	count, err := repo.CountUsers(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 2, count)
+
+	found, err := repo.GetByEmail(context.Background(), "newuser@example.com")
+	require.NoError(t, err)
+	assert.Equal(t, "New User", found.Name)
+}
+
+func TestCreateUser_DuplicateEmail(t *testing.T) {
+	t.Parallel()
+	database := setupTestDB(t)
+	repo := queries.NewUserRepository(database)
+
+	user := &models.User{
+		ID:           "usr00003-0000-0000-0000-000000000003",
+		Email:        "james@example.com",
+		Name:         "Duplicate",
+		PasswordHash: "$2a$10$somehashedpass",
+	}
+
+	err := repo.CreateUser(context.Background(), user)
+	assert.ErrorIs(t, err, queries.ErrEmailTaken)
 }

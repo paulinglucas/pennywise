@@ -384,6 +384,48 @@ func TestCreateGoalContribution_InvalidTransactionID(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
+func TestCreateGoalContribution_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+	goal := createTestGoal(t, router, cookie)
+
+	req := authedRequest(http.MethodPost, fmt.Sprintf("/api/v1/goals/%s/contributions", goal.Id), "not json", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestDeleteGoalContribution_AuditLog(t *testing.T) {
+	t.Parallel()
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+	goal := createTestGoal(t, router, cookie)
+
+	body := `{"amount":500}`
+	createReq := authedRequest(http.MethodPost, fmt.Sprintf("/api/v1/goals/%s/contributions", goal.Id), body, cookie)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var contrib api.GoalContributionResponse
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &contrib))
+
+	deleteReq := authedRequest(http.MethodDelete, fmt.Sprintf("/api/v1/goals/%s/contributions/%s", goal.Id, contrib.Id), "", cookie)
+	deleteRec := httptest.NewRecorder()
+	router.ServeHTTP(deleteRec, deleteReq)
+	require.Equal(t, http.StatusNoContent, deleteRec.Code)
+
+	var count int
+	err := database.QueryRowContext(context.Background(),
+		"SELECT COUNT(*) FROM audit_log WHERE entity_type = 'goal' AND entity_id = ? AND action = 'reverse_contribution'",
+		goal.Id.String(),
+	).Scan(&count)
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+}
+
 func TestCreateGoalContribution_TransactionIDInListResponse(t *testing.T) {
 	t.Parallel()
 	_, router := setupRouter(t)

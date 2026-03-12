@@ -210,4 +210,122 @@ describe("Accounts", () => {
 
     expect(screen.getByText("Delete Account")).toBeInTheDocument();
   });
+
+  it("submits update form from edit modal", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(accountList),
+    });
+
+    const user = userEvent.setup();
+    renderWithProviders(<Accounts />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Chase Checking")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText("Chase Checking"));
+
+    const nameInput = screen.getByDisplayValue("Chase Checking");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Updated Checking");
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          id: "acc-1",
+          name: "Updated Checking",
+          institution: "Chase",
+          account_type: "checking",
+          currency: "USD",
+          is_active: true,
+        }),
+    });
+
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() => {
+      const calls = mockFetch.mock.calls;
+      const putCalls = calls.filter((c: unknown[]) => {
+        const opts = c[1] as RequestInit | undefined;
+        return opts?.method === "PUT";
+      });
+      expect(putCalls.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("calls delete when Delete Account is clicked", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(accountList),
+    });
+
+    const user = userEvent.setup();
+    renderWithProviders(<Accounts />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Chase Checking")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText("Chase Checking"));
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+      json: () => Promise.resolve(undefined),
+    });
+
+    await user.click(screen.getByText("Delete Account"));
+
+    await waitFor(() => {
+      const calls = mockFetch.mock.calls;
+      const deleteCalls = calls.filter((c: unknown[]) => {
+        const opts = c[1] as RequestInit | undefined;
+        return opts?.method === "DELETE";
+      });
+      expect(deleteCalls.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("closes edit modal after successful update", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(accountList),
+    });
+
+    const user = userEvent.setup();
+    renderWithProviders(<Accounts />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Chase Checking")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText("Chase Checking"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          id: "acc-1",
+          name: "Chase Checking",
+          institution: "Chase",
+          account_type: "checking",
+          currency: "USD",
+          is_active: true,
+        }),
+    });
+
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
 });

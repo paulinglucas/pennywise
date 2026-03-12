@@ -157,6 +157,46 @@ docker pull ghcr.io/paulinglucas/pennywise:1.0.0
 PENNYWISE_IMAGE=ghcr.io/paulinglucas/pennywise:1.0.0 scripts/deploy.sh
 ```
 
+## Account Sync (SimpleFIN)
+
+Pennywise syncs account balances from your bank via [SimpleFIN](https://www.simplefin.org/), a read-only financial data protocol. SimpleFIN cannot move money or initiate transactions — it only reads balances.
+
+### How it works
+
+1. Sign up at [bridge.simplefin.org](https://bridge.simplefin.org/) ($1.50/mo or $15/yr) and connect your bank accounts
+2. Generate a Setup Token from the Bridge dashboard
+3. In Pennywise, go to **Settings** and paste the token
+4. Map each SimpleFIN account to a Pennywise account using the link UI
+5. Balances sync automatically once daily (default 6:00 AM local time)
+
+### Security model
+
+- **Read-only access.** SimpleFIN has no write endpoints. No one in the chain can move your money.
+- **Your bank credentials never touch Pennywise.** Authentication with your bank happens through the SimpleFIN Bridge (via the MX aggregator). Pennywise only receives an API access URL.
+- **The access URL is encrypted at rest.** Stored in SQLite using AES-256-GCM, with the key derived from your JWT secret via PBKDF2.
+- **Setup tokens are single-use.** Once claimed, a token cannot be reused. If a second claim is attempted, SimpleFIN returns 403.
+- **You control revocation.** Disconnect from Pennywise Settings, or revoke from the SimpleFIN Bridge dashboard at any time.
+
+### Data flow
+
+```text
+Your Bank -> MX (aggregator) -> SimpleFIN Bridge -> Pennywise (your hardware)
+```
+
+Bank credentials are stored by MX, not by SimpleFIN or Pennywise. All data after the Bridge lives exclusively in your local SQLite database.
+
+### Balance history
+
+Each sync that detects a balance change (threshold: >0.5 cents) updates the asset's current value and writes a record to the `asset_history` table. This provides a time series of your account balances over time.
+
+### Configuration
+
+| Variable | Default | Description |
+| -------- | ------- | ----------- |
+| `PENNYWISE_SYNC_HOUR` | `6` | Hour of day (0-23) for automatic daily sync |
+
+You can also trigger a manual sync from the Settings page at any time.
+
 ## Observability
 
 The backend exposes a `/metrics` endpoint (Prometheus format, localhost-only) and OpenTelemetry tracing. A pre-built Grafana dashboard is included at `deploy/grafana-dashboard.json`.

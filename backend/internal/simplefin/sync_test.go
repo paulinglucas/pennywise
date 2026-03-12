@@ -2,6 +2,7 @@ package simplefin
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -207,6 +208,109 @@ func TestSyncUserLinkedAccountNoAsset(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.Updated)
 	assert.Equal(t, 0, result.Errors)
+}
+
+func TestSyncDebtAccountUpdatesGoalNotAsset(t *testing.T) {
+	database, err := db.Open(":memory:")
+	require.NoError(t, err)
+	require.NoError(t, db.Migrate(database))
+	t.Cleanup(func() { _ = database.Close() })
+
+	ctx := context.Background()
+	_, err = database.ExecContext(ctx, `INSERT INTO users (id, email, name, password_hash) VALUES ('u1', 'test@test.com', 'Test', 'hash')`)
+	require.NoError(t, err)
+	_, err = database.ExecContext(ctx, `INSERT INTO accounts (id, user_id, name, institution, account_type, simplefin_id) VALUES
+		('a1', 'u1', 'Home Mortgage', 'Bank', 'mortgage', 'sfin-mort'),
+		('a2', 'u1', 'Visa Card', 'Bank', 'credit_card', 'sfin-cc')`)
+	require.NoError(t, err)
+	_, err = database.ExecContext(ctx, `INSERT INTO assets (id, user_id, account_id, name, asset_type, current_value) VALUES
+		('asset1', 'u1', 'a1', 'House', 'real_estate', 301000.00)`)
+	require.NoError(t, err)
+	_, err = database.ExecContext(ctx, `INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, linked_account_id, priority_rank) VALUES
+		('goal1', 'u1', 'Pay off mortgage', 'debt_payoff', 301000, 280000, 'a1', 1),
+		('goal2', 'u1', 'Pay off visa', 'debt_payoff', 5000, 2500, 'a2', 2)`)
+	require.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"errors":[],"accounts":[
+			{"id":"sfin-mort","name":"Home Mortgage","currency":"USD","balance":"-275000.00","balance-date":1709856000,"org":{"name":"Bank","id":"bank","domain":"bank.com"}},
+			{"id":"sfin-cc","name":"Visa Card","currency":"USD","balance":"-1800.50","balance-date":1709856000,"org":{"name":"Bank","id":"bank","domain":"bank.com"}}
+		]}`))
+	}))
+	t.Cleanup(server.Close)
+
+	repo := NewSimplefinRepository(database)
+	encKey := pennywisecrypto.DeriveKey("test-key")
+	client := NewClient(nil)
+	svc := NewSyncService(client, repo, encKey)
+
+	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL))
+	require.NoError(t, err)
+	assert.Equal(t, 2, result.Updated)
+	assert.Equal(t, 0, result.Errors)
+
+	asset1, err := repo.GetAssetForAccount(ctx, "u1", "a1")
+	require.NoError(t, err)
+	assert.Equal(t, 301000.00, asset1.CurrentValue)
+
+	var mortgageBalance, ccBalance sql.NullFloat64
+	err = database.QueryRowContext(ctx, `SELECT current_balance FROM accounts WHERE id = 'a1'`).Scan(&mortgageBalance)
+	require.NoError(t, err)
+	assert.True(t, mortgageBalance.Valid)
+	assert.Equal(t, 275000.00, mortgageBalance.Float64)
+
+	err = database.QueryRowContext(ctx, `SELECT current_balance FROM accounts WHERE id = 'a2'`).Scan(&ccBalance)
+	require.NoError(t, err)
+	assert.True(t, ccBalance.Valid)
+	assert.Equal(t, 1800.50, ccBalance.Float64)
+}
+
+func TestSyncDebtAccountNoGoalStillUpdatesBalance(t *testing.T) {
+	database, err := db.Open(":memory:")
+	require.NoError(t, err)
+	require.NoError(t, db.Migrate(database))
+	t.Cleanup(func() { _ = database.Close() })
+
+	ctx := context.Background()
+	_, err = database.ExecContext(ctx, `INSERT INTO users (id, email, name, password_hash) VALUES ('u1', 'test@test.com', 'Test', 'hash')`)
+	require.NoError(t, err)
+	_, err = database.ExecContext(ctx, `INSERT INTO accounts (id, user_id, name, institution, account_type, simplefin_id) VALUES
+		('a1', 'u1', 'Credit Card', 'Bank', 'credit_card', 'sfin-cc')`)
+	require.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"errors":[],"accounts":[
+			{"id":"sfin-cc","name":"Credit Card","currency":"USD","balance":"-500.00","balance-date":1709856000,"org":{"name":"Bank","id":"bank","domain":"bank.com"}}
+		]}`))
+	}))
+	t.Cleanup(server.Close)
+
+	repo := NewSimplefinRepository(database)
+	encKey := pennywisecrypto.DeriveKey("test-key")
+	client := NewClient(nil)
+	svc := NewSyncService(client, repo, encKey)
+
+	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL))
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Updated)
+	assert.Equal(t, 0, result.Errors)
+
+	var balance sql.NullFloat64
+	err = database.QueryRowContext(ctx, `SELECT current_balance FROM accounts WHERE id = 'a1'`).Scan(&balance)
+	require.NoError(t, err)
+	assert.True(t, balance.Valid)
+	assert.Equal(t, 500.00, balance.Float64)
+}
+
+func TestIsDebtAccount(t *testing.T) {
+	assert.True(t, isDebtAccount("mortgage"))
+	assert.True(t, isDebtAccount("credit_card"))
+	assert.True(t, isDebtAccount("credit_line"))
+	assert.False(t, isDebtAccount("checking"))
+	assert.False(t, isDebtAccount("savings"))
+	assert.False(t, isDebtAccount("brokerage"))
 }
 
 func TestSyncUserNoLinkedAccounts(t *testing.T) {

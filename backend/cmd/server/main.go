@@ -37,6 +37,7 @@ func main() {
 
 func runServer() {
 	logger := newLogger()
+	slog.SetDefault(logger)
 
 	shutdownTracer, err := observability.InitTracer(logger, os.Stdout)
 	if err != nil {

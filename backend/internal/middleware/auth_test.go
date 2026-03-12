@@ -162,6 +162,85 @@ func TestNewClaims_SetsFields(t *testing.T) {
 	assert.True(t, claims.ExpiresAt.After(time.Now()))
 }
 
+func TestGetUserID_EmptyWithoutMiddleware(t *testing.T) {
+	t.Parallel()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	id := middleware.GetUserID(req.Context())
+	assert.Empty(t, id)
+}
+
+func TestJWTAuth_ValidToken_SetsUserID(t *testing.T) {
+	t.Parallel()
+	claims := middleware.NewClaims("usr-jwt-1", "jwt@example.com", time.Hour)
+	tokenStr := signTestToken(claims)
+
+	var capturedUserID string
+	handler := middleware.JWTAuth(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedUserID = middleware.GetUserID(r.Context())
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req.AddCookie(&http.Cookie{Name: "token", Value: tokenStr})
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "usr-jwt-1", capturedUserID)
+}
+
+func TestJWTAuth_MissingCookie_Returns401(t *testing.T) {
+	t.Parallel()
+	handler := middleware.JWTAuth(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestJWTAuth_ExpiredToken_Returns401(t *testing.T) {
+	t.Parallel()
+	claims := &middleware.Claims{
+		UserID: "usr-jwt-2",
+		Email:  "jwt@example.com",
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-2 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Hour)),
+			Issuer:    "pennywise",
+		},
+	}
+	tokenStr := signTestToken(claims)
+
+	handler := middleware.JWTAuth(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req.AddCookie(&http.Cookie{Name: "token", Value: tokenStr})
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestJWTAuth_MalformedToken_Returns401(t *testing.T) {
+	t.Parallel()
+	handler := middleware.JWTAuth(testSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
+	req.AddCookie(&http.Cookie{Name: "token", Value: "garbage-token"})
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
 func TestWithUserID_And_GetUserID(t *testing.T) {
 	t.Parallel()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

@@ -262,10 +262,11 @@ func (r *SQLiteAssetRepository) GetAllocationOverTime(ctx context.Context, userI
 	start := time.Now()
 	defer func() { observability.RecordDBQuery("get_allocation_over_time", time.Since(start)) }()
 
-	query := `SELECT date(ah.recorded_at) as snap_date, a.asset_type, SUM(ah.value) as total_value
-		 FROM asset_history ah
-		 INNER JOIN assets a ON ah.asset_id = a.id
-		 WHERE a.user_id = ? AND a.deleted_at IS NULL`
+	query := `WITH snap_dates AS (
+		   SELECT DISTINCT DATE(ah.recorded_at) as snap_date
+		   FROM asset_history ah
+		   JOIN assets a ON a.id = ah.asset_id
+		   WHERE a.user_id = ? AND a.deleted_at IS NULL`
 	args := []interface{}{userID}
 
 	if since != nil {
@@ -273,7 +274,20 @@ func (r *SQLiteAssetRepository) GetAllocationOverTime(ctx context.Context, userI
 		args = append(args, since.Format(time.RFC3339))
 	}
 
-	query += " GROUP BY snap_date, a.asset_type ORDER BY snap_date ASC, a.asset_type ASC"
+	query += `
+		 )
+		 SELECT sd.snap_date, a.asset_type, SUM(
+		   (SELECT ah.value FROM asset_history ah
+		    WHERE ah.asset_id = a.id AND DATE(ah.recorded_at) <= sd.snap_date
+		    ORDER BY ah.recorded_at DESC LIMIT 1)
+		 ) as total_value
+		 FROM snap_dates sd
+		 CROSS JOIN assets a
+		 WHERE a.user_id = ? AND a.deleted_at IS NULL
+		 GROUP BY sd.snap_date, a.asset_type
+		 HAVING total_value IS NOT NULL
+		 ORDER BY sd.snap_date ASC, a.asset_type ASC`
+	args = append(args, userID)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -342,12 +356,10 @@ func (r *SQLiteAssetRepository) GetLinkedAccounts(ctx context.Context, accountID
 		`SELECT a.id, a.name, a.account_type, a.institution,
 		        CASE
 		          WHEN a.account_type IN ('credit_card', 'mortgage', 'credit_line')
-		          THEN COALESCE(g.current_amount, a.original_balance, 0)
+		          THEN COALESCE(a.current_balance, a.original_balance, 0)
 		          ELSE NULL
 		        END as balance
 		 FROM accounts a
-		 LEFT JOIN goals g ON g.linked_account_id = a.id
-		   AND g.goal_type = 'debt_payoff' AND g.deleted_at IS NULL
 		 WHERE a.id IN (`+placeholders+`) AND a.deleted_at IS NULL`,
 		args...,
 	)

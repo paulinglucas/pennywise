@@ -42,7 +42,7 @@ paths:
       operationId: postAuthRegister
       tags: [auth]
       security: []
-      summary: Register a new user (max 2 users)
+      summary: Register a new user (max 10 users)
       requestBody:
         required: true
         content:

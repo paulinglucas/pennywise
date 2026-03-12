@@ -76,7 +76,7 @@ jobs:
           grep -v '/api/generated\.go\|/api/stub\.go\|cmd/server/' coverage.out > coverage.filtered.out
           go tool cover -func=coverage.filtered.out
           total=$(go tool cover -func=coverage.filtered.out | grep '^total:' | awk '{print $NF}' | tr -d '%')
-          threshold=78
+          threshold=80
           result=$(echo "$total < $threshold" | bc)
           if [ "$result" -eq 1 ]; then
             echo "FAIL: coverage ${total}% is below threshold ${threshold}%"

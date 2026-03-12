@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
@@ -136,6 +137,7 @@ type linkedAccountResponse struct {
 	SimplefinID string `json:"simplefin_id"`
 	AccountName string `json:"account_name"`
 	Institution string `json:"institution"`
+	AccountType string `json:"account_type"`
 }
 
 func (h *Handler) Disconnect(w http.ResponseWriter, r *http.Request) {
@@ -187,18 +189,9 @@ func (h *Handler) ListSimplefinAccounts(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	accounts := make([]simplefinAccountResponse, len(resp.Accounts))
-	for i, a := range resp.Accounts {
-		accounts[i] = simplefinAccountResponse{
-			ID:          a.ID,
-			Name:        a.Name,
-			Institution: a.Org.Name,
-			Balance:     a.Balance,
-			Currency:    a.Currency,
-		}
-	}
+	accounts := deduplicateAccounts(resp.Accounts)
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{"accounts": accounts})
+	writeJSON(w, http.StatusOK, map[string]any{"accounts": accounts})
 }
 
 type linkRequest struct {
@@ -285,6 +278,45 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(data)
+}
+
+func deduplicateAccounts(raw []Account) []simplefinAccountResponse {
+	type entry struct {
+		resp    simplefinAccountResponse
+		balance float64
+	}
+
+	seen := make(map[string]entry)
+	order := make([]string, 0, len(raw))
+
+	for _, a := range raw {
+		key := a.Name
+		bal, _ := strconv.ParseFloat(a.Balance, 64)
+
+		existing, exists := seen[key]
+		if !exists {
+			order = append(order, key)
+		}
+
+		if !exists || (existing.balance == 0 && bal != 0) {
+			seen[key] = entry{
+				resp: simplefinAccountResponse{
+					ID:          a.ID,
+					Name:        a.Name,
+					Institution: a.Org.Name,
+					Balance:     a.Balance,
+					Currency:    a.Currency,
+				},
+				balance: bal,
+			}
+		}
+	}
+
+	result := make([]simplefinAccountResponse, 0, len(order))
+	for _, key := range order {
+		result = append(result, seen[key].resp)
+	}
+	return result
 }
 
 func jwtAuth(secret []byte) func(http.Handler) http.Handler {

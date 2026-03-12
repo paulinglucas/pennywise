@@ -16,7 +16,7 @@ import (
 )
 
 const tokenTTL = 24 * time.Hour
-const maxUsers = 2
+const maxUsers = 10
 
 type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*models.User, error)
