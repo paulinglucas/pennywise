@@ -789,6 +789,121 @@ func TestGetTransaction_ReturnsRecurringTransactionId(t *testing.T) {
 	assert.Equal(t, recurringID, resp.RecurringTransactionId.String())
 }
 
+func TestImportTransactions_InvalidMultipartForm(t *testing.T) {
+	t.Parallel()
+	_, router, cookie := setupTransactionTests(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/import", strings.NewReader("not multipart"))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestImportTransactions_CSVWithCurrencyColumn(t *testing.T) {
+	t.Parallel()
+	_, router, cookie := setupTransactionTests(t)
+
+	csvContent := "date,type,category,amount,currency,notes\n2025-06-15,expense,food,42.99,EUR,Euro lunch\n"
+
+	var buf strings.Builder
+	writer := multipart.NewWriter(&buf)
+
+	part, err := writer.CreateFormField("account_id")
+	require.NoError(t, err)
+	_, err = part.Write([]byte(txnTestAccountID))
+	require.NoError(t, err)
+
+	filePart, err := writer.CreateFormFile("file", "transactions.csv")
+	require.NoError(t, err)
+	_, err = filePart.Write([]byte(csvContent))
+	require.NoError(t, err)
+
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/import", strings.NewReader(buf.String()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.ImportResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, 1, resp.Imported)
+	assert.Empty(t, resp.Errors)
+}
+
+func TestImportTransactions_CSVMissingRequiredColumns(t *testing.T) {
+	t.Parallel()
+	_, router, cookie := setupTransactionTests(t)
+
+	csvContent := "name,value\nfoo,123\n"
+
+	var buf strings.Builder
+	writer := multipart.NewWriter(&buf)
+
+	part, err := writer.CreateFormField("account_id")
+	require.NoError(t, err)
+	_, err = part.Write([]byte(txnTestAccountID))
+	require.NoError(t, err)
+
+	filePart, err := writer.CreateFormFile("file", "transactions.csv")
+	require.NoError(t, err)
+	_, err = filePart.Write([]byte(csvContent))
+	require.NoError(t, err)
+
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/import", strings.NewReader(buf.String()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.ImportResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, 0, resp.Imported)
+	assert.NotEmpty(t, resp.Errors)
+}
+
+func TestCreateTransaction_WithGroupID(t *testing.T) {
+	t.Parallel()
+	_, router, cookie := setupTransactionTests(t)
+
+	groupBody := fmt.Sprintf(`{
+		"name": "Test Group",
+		"members": [
+			{"type":"expense","category":"food","amount":10,"date":"2026-03-08","account_id":"%s"},
+			{"type":"expense","category":"drinks","amount":5,"date":"2026-03-08","account_id":"%s"}
+		]
+	}`, txnTestAccountID, txnTestAccountID)
+	groupReq := authedRequest(http.MethodPost, "/api/v1/transaction-groups", groupBody, cookie)
+	groupRec := httptest.NewRecorder()
+	router.ServeHTTP(groupRec, groupReq)
+	require.Equal(t, http.StatusCreated, groupRec.Code)
+
+	var group api.TransactionGroupResponse
+	require.NoError(t, json.Unmarshal(groupRec.Body.Bytes(), &group))
+
+	body := fmt.Sprintf(`{"type":"expense","category":"snacks","amount":8,"date":"2025-06-15","account_id":"%s","group_id":"%s"}`, txnTestAccountID, group.Id)
+	req := authedRequest(http.MethodPost, "/api/v1/transactions", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.TransactionResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.NotNil(t, resp.GroupId)
+	assert.Equal(t, group.Id.String(), resp.GroupId.String())
+}
+
 func TestListCategories_ReturnsDistinctCategories(t *testing.T) {
 	t.Parallel()
 	db, router, cookie := setupTransactionTests(t)
@@ -814,6 +929,76 @@ func TestListCategories_ReturnsDistinctCategories(t *testing.T) {
 	var catResp api.CategoriesResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &catResp))
 	assert.Equal(t, []string{"food", "rent"}, catResp.Categories)
+}
+
+func TestImportTransactions_CSVWithEmptyOptionalFields(t *testing.T) {
+	t.Parallel()
+	_, router, cookie := setupTransactionTests(t)
+
+	csvContent := "date,type,category,amount,currency,notes\n2025-06-15,expense,food,42.99,,\n"
+
+	var buf strings.Builder
+	writer := multipart.NewWriter(&buf)
+
+	part, err := writer.CreateFormField("account_id")
+	require.NoError(t, err)
+	_, err = part.Write([]byte(txnTestAccountID))
+	require.NoError(t, err)
+
+	filePart, err := writer.CreateFormFile("file", "transactions.csv")
+	require.NoError(t, err)
+	_, err = filePart.Write([]byte(csvContent))
+	require.NoError(t, err)
+
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/import", strings.NewReader(buf.String()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.ImportResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, 1, resp.Imported)
+	assert.Empty(t, resp.Errors)
+}
+
+func TestImportTransactions_CSVWithNotesColumn(t *testing.T) {
+	t.Parallel()
+	_, router, cookie := setupTransactionTests(t)
+
+	csvContent := "date,type,category,amount,notes\n2025-06-15,expense,food,42.99,Lunch downtown\n"
+
+	var buf strings.Builder
+	writer := multipart.NewWriter(&buf)
+
+	part, err := writer.CreateFormField("account_id")
+	require.NoError(t, err)
+	_, err = part.Write([]byte(txnTestAccountID))
+	require.NoError(t, err)
+
+	filePart, err := writer.CreateFormFile("file", "transactions.csv")
+	require.NoError(t, err)
+	_, err = filePart.Write([]byte(csvContent))
+	require.NoError(t, err)
+
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/transactions/import", strings.NewReader(buf.String()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.ImportResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, 1, resp.Imported)
+	assert.Empty(t, resp.Errors)
 }
 
 func TestListCategories_Empty(t *testing.T) {

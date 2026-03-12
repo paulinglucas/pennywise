@@ -31,6 +31,16 @@ func NewSyncService(client *Client, repo *SQLiteSimplefinRepository, encryptionK
 	}
 }
 
+var debtAccountTypes = map[string]bool{
+	"credit_card": true,
+	"mortgage":    true,
+	"credit_line": true,
+}
+
+func isDebtAccount(accountType string) bool {
+	return debtAccountTypes[accountType]
+}
+
 func (s *SyncService) SyncUser(ctx context.Context, userID, accessURL string) (*SyncResult, error) {
 	username, password, baseURL, err := ParseAccessURL(accessURL)
 	if err != nil {
@@ -68,30 +78,48 @@ func (s *SyncService) SyncUser(ctx context.Context, userID, accessURL string) (*
 		}
 		balance = math.Abs(balance)
 
-		asset, err := s.repo.GetAssetForAccount(ctx, userID, la.AccountID)
-		if err != nil {
-			slog.Warn("failed to get asset for account", slog.String("account_id", la.AccountID), slog.Any("error", err))
-			result.Errors++
-			continue
-		}
-		if asset == nil {
+		if isDebtAccount(la.AccountType) {
+			s.syncDebtBalance(ctx, la, balance, result)
 			continue
 		}
 
-		if math.Abs(asset.CurrentValue-balance) < 0.005 {
-			continue
-		}
-
-		if err := s.repo.UpdateAssetValue(ctx, asset.ID, balance); err != nil {
-			slog.Warn("failed to update asset value", slog.String("asset_id", asset.ID), slog.Any("error", err)) //nolint:gosec // asset_id is internal DB value
-			result.Errors++
-			continue
-		}
-
-		result.Updated++
+		s.syncAssetAccount(ctx, userID, la, balance, result)
 	}
 
 	return result, nil
+}
+
+func (s *SyncService) syncDebtBalance(ctx context.Context, la LinkedAccount, balance float64, result *SyncResult) {
+	if err := s.repo.UpdateAccountBalance(ctx, la.AccountID, balance); err != nil {
+		slog.Warn("failed to update account balance", slog.String("account_id", la.AccountID), slog.Any("error", err)) //nolint:gosec // account_id is internal DB value
+		result.Errors++
+		return
+	}
+	result.Updated++
+}
+
+func (s *SyncService) syncAssetAccount(ctx context.Context, userID string, la LinkedAccount, balance float64, result *SyncResult) {
+	asset, err := s.repo.GetAssetForAccount(ctx, userID, la.AccountID)
+	if err != nil {
+		slog.Warn("failed to get asset for account", slog.String("account_id", la.AccountID), slog.Any("error", err)) //nolint:gosec // account_id is internal DB value
+		result.Errors++
+		return
+	}
+	if asset == nil {
+		return
+	}
+
+	if math.Abs(asset.CurrentValue-balance) < 0.005 {
+		return
+	}
+
+	if err := s.repo.UpdateAssetValue(ctx, asset.ID, balance); err != nil {
+		slog.Warn("failed to update asset value", slog.String("asset_id", asset.ID), slog.Any("error", err)) //nolint:gosec // asset_id is internal DB value
+		result.Errors++
+		return
+	}
+
+	result.Updated++
 }
 
 func (s *SyncService) SyncAll(ctx context.Context) []SyncResult {

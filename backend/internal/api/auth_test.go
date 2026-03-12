@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -267,22 +268,26 @@ func TestPostAuthRegister_DuplicateEmail(t *testing.T) {
 
 func TestPostAuthRegister_MaxUsersReached(t *testing.T) {
 	t.Parallel()
-	_, router := setupRouter(t)
+	database, router := setupRouter(t)
 
-	body1 := `{"email":"second@example.com","password":"securepassword123","name":"Second"}`
-	req1 := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString(body1))
-	req1.Header.Set("Content-Type", "application/json")
-	rec1 := httptest.NewRecorder()
-	router.ServeHTTP(rec1, req1)
-	require.Equal(t, http.StatusCreated, rec1.Code)
+	for i := 2; i <= 10; i++ {
+		_, err := database.ExecContext(context.Background(),
+			`INSERT INTO users (id, email, name, password_hash) VALUES (?, ?, ?, ?)`,
+			fmt.Sprintf("usr-max-%02d", i),
+			fmt.Sprintf("user%d@example.com", i),
+			fmt.Sprintf("User %d", i),
+			precomputedHash,
+		)
+		require.NoError(t, err)
+	}
 
-	body2 := `{"email":"third@example.com","password":"securepassword123","name":"Third"}`
-	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString(body2))
-	req2.Header.Set("Content-Type", "application/json")
-	rec2 := httptest.NewRecorder()
-	router.ServeHTTP(rec2, req2)
+	body := `{"email":"eleventh@example.com","password":"securepassword123","name":"Eleventh"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
 
-	assert.Equal(t, http.StatusConflict, rec2.Code)
+	assert.Equal(t, http.StatusConflict, rec.Code)
 }
 
 func TestPostAuthRegister_ShortPassword(t *testing.T) {
@@ -320,6 +325,47 @@ func TestPostAuthRegister_AutoLoginAfterRegister(t *testing.T) {
 	var resp api.UserResponse
 	require.NoError(t, json.Unmarshal(meRec.Body.Bytes(), &resp))
 	assert.Equal(t, "autologin@example.com", resp.Email)
+}
+
+func TestPostAuthRegister_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString("not json"))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestPostAuthRegister_MissingName_Returns400(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+
+	body := `{"email":"noname@example.com","password":"securepassword123"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestPostAuthLogin_MissingPassword_Returns400(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+
+	body := `{"email":"james@example.com"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 func TestRequestID_PresentOnEveryResponse(t *testing.T) {

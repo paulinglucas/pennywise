@@ -211,6 +211,85 @@ func TestGetDashboard_DebtsOriginalBalance(t *testing.T) {
 	assert.Equal(t, float32(10000), *resp.DebtsSummary[0].OriginalBalance)
 }
 
+func TestGetDashboard_DebtsMonthsRemainingAndPayoffDate(t *testing.T) {
+	t.Parallel()
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	ccAccountID := "cc000003-0000-0000-0000-000000000001"
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		ccAccountID, testUserID, "Amex Card", "Amex", "credit_card", "USD", 12000.0,
+	)
+	require.NoError(t, err)
+
+	_, err = database.ExecContext(context.Background(),
+		`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, linked_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"gl000003-0000-0000-0000-000000000001", testUserID, "Pay off Amex", "debt_payoff", 12000, 6000, 1, ccAccountID,
+	)
+	require.NoError(t, err)
+
+	txnBody := fmt.Sprintf(`{"account_id":"%s","type":"expense","category":"cc_payment","amount":1000,"date":"2026-03-01"}`, ccAccountID)
+	txnReq := authedRequest(http.MethodPost, "/api/v1/transactions", txnBody, cookie)
+	txnRec := httptest.NewRecorder()
+	router.ServeHTTP(txnRec, txnReq)
+	require.Equal(t, http.StatusCreated, txnRec.Code)
+
+	req := authedRequest(http.MethodGet, "/api/v1/dashboard", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.DashboardResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Len(t, resp.DebtsSummary, 1)
+
+	debt := resp.DebtsSummary[0]
+	assert.Equal(t, "Amex Card", debt.Name)
+	assert.Equal(t, float32(6000), debt.Balance)
+	assert.Greater(t, debt.MonthlyPayment, float32(0))
+	require.NotNil(t, debt.MonthsRemaining)
+	assert.Greater(t, *debt.MonthsRemaining, 0)
+	require.NotNil(t, debt.PayoffDate)
+	require.NotNil(t, debt.OriginalBalance)
+	assert.Equal(t, float32(12000), *debt.OriginalBalance)
+}
+
+func TestGetDashboard_UserScopedData(t *testing.T) {
+	t.Parallel()
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO users (id, email, name, password_hash) VALUES (?, ?, ?, ?)`,
+		"usr00002-0000-0000-0000-000000000002", "alex@example.com", "Alex", "$2a$10$dummy",
+	)
+	require.NoError(t, err)
+
+	_, err = database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency) VALUES (?, ?, ?, ?, ?, ?)`,
+		"acc00050-0000-0000-0000-000000000050", "usr00002-0000-0000-0000-000000000002", "Alex Checking", "BofA", "checking", "USD",
+	)
+	require.NoError(t, err)
+
+	_, err = database.ExecContext(context.Background(),
+		`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
+		"as000050-0000-0000-0000-000000000050", "usr00002-0000-0000-0000-000000000002", "Alex Asset", "liquid", 99000, "USD",
+	)
+	require.NoError(t, err)
+
+	req := authedRequest(http.MethodGet, "/api/v1/dashboard", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.DashboardResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, float32(0), resp.NetWorth)
+}
+
 func TestGetNetWorthHistory_Empty(t *testing.T) {
 	t.Parallel()
 	_, router := setupRouter(t)

@@ -60,3 +60,15 @@ func TestPostVitals_EmptyMetrics(t *testing.T) {
 
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 }
+
+func TestPostVitals_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/telemetry/vitals", bytes.NewBufferString("not json"))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}

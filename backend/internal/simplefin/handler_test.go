@@ -325,6 +325,125 @@ func TestSyncNotConnected(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
+func TestLinkInvalidBody(t *testing.T) {
+	handler, _, _ := setupHandlerTest(t)
+	router := Routes(handler, testSecret)
+
+	req := authedRequest(t, http.MethodPost, "/link", nil)
+	req.Body = http.NoBody
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestLinkMissingSimplefinID(t *testing.T) {
+	handler, repo, _ := setupHandlerTest(t)
+	router := Routes(handler, testSecret)
+
+	require.NoError(t, repo.SaveConnection(context.Background(), "u1", "enc"))
+
+	req := authedRequest(t, http.MethodPost, "/link", linkRequest{AccountID: "a1", SimplefinID: ""})
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestDisconnectWhenNotConnected(t *testing.T) {
+	handler, _, _ := setupHandlerTest(t)
+	router := Routes(handler, testSecret)
+
+	req := authedRequest(t, http.MethodDelete, "/", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+}
+
+func TestUnlinkAccountVerifiesRemoval(t *testing.T) {
+	handler, repo, _ := setupHandlerTest(t)
+	router := Routes(handler, testSecret)
+
+	require.NoError(t, repo.SaveConnection(context.Background(), "u1", "enc"))
+	require.NoError(t, repo.LinkAccount(context.Background(), "u1", "a1", "sfin-001"))
+	require.NoError(t, repo.LinkAccount(context.Background(), "u1", "a2", "sfin-002"))
+
+	req := authedRequest(t, http.MethodDelete, "/link/a1", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	linked, err := repo.GetLinkedAccounts(context.Background(), "u1")
+	require.NoError(t, err)
+	assert.Len(t, linked, 1)
+	assert.Equal(t, "a2", linked[0].AccountID)
+}
+
+func TestTriggerSyncSetsError(t *testing.T) {
+	handler, repo, _ := setupHandlerTest(t)
+	router := Routes(handler, testSecret)
+
+	badAccessURL := "https://testuser:testpass@invalid-host.example.com/simplefin" //nolint:gosec // test credential
+	encrypted, err := pennywisecrypto.Encrypt(testEncKey, badAccessURL)
+	require.NoError(t, err)
+	require.NoError(t, repo.SaveConnection(context.Background(), "u1", encrypted))
+	require.NoError(t, repo.LinkAccount(context.Background(), "u1", "a1", "sfin-001"))
+
+	req := authedRequest(t, http.MethodPost, "/sync", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusBadGateway, rec.Code)
+
+	conn, err := repo.GetConnection(context.Background(), "u1")
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	assert.NotNil(t, conn.SyncError)
+}
+
+func TestListSimplefinAccountsFetchFailure(t *testing.T) {
+	handler, repo, _ := setupHandlerTest(t)
+	router := Routes(handler, testSecret)
+
+	badAccessURL := "https://testuser:testpass@invalid-host.example.com/simplefin" //nolint:gosec // test credential
+	encrypted, err := pennywisecrypto.Encrypt(testEncKey, badAccessURL)
+	require.NoError(t, err)
+	require.NoError(t, repo.SaveConnection(context.Background(), "u1", encrypted))
+
+	req := authedRequest(t, http.MethodGet, "/accounts", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusBadGateway, rec.Code)
+}
+
+func TestStatusWithSyncError(t *testing.T) {
+	handler, repo, _ := setupHandlerTest(t)
+	router := Routes(handler, testSecret)
+
+	require.NoError(t, repo.SaveConnection(context.Background(), "u1", "enc"))
+	require.NoError(t, repo.UpdateSyncError(context.Background(), "u1", "connection timeout"))
+
+	req := authedRequest(t, http.MethodGet, "/status", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var status map[string]interface{}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&status))
+	assert.Equal(t, true, status["connected"])
+	assert.NotNil(t, status["sync_error"])
+	assert.Equal(t, "connection timeout", status["sync_error"])
+}
+
+func TestUnlinkAccountNotLinked(t *testing.T) {
+	handler, repo, _ := setupHandlerTest(t)
+	router := Routes(handler, testSecret)
+
+	require.NoError(t, repo.SaveConnection(context.Background(), "u1", "enc"))
+
+	req := authedRequest(t, http.MethodDelete, "/link/a1", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
 func TestUnauthenticatedRequest(t *testing.T) {
 	handler, _, _ := setupHandlerTest(t)
 	router := Routes(handler, testSecret)

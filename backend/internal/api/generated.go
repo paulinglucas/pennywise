@@ -1208,7 +1208,7 @@ type ServerInterface interface {
 	// Get current user
 	// (GET /auth/me)
 	GetAuthMe(w http.ResponseWriter, r *http.Request)
-	// Register a new user (max 2 users)
+	// Register a new user (max 10 users)
 	// (POST /auth/register)
 	PostAuthRegister(w http.ResponseWriter, r *http.Request)
 	// List distinct categories used by the current user
@@ -1415,7 +1415,7 @@ func (_ Unimplemented) GetAuthMe(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Register a new user (max 2 users)
+// Register a new user (max 10 users)
 // (POST /auth/register)
 func (_ Unimplemented) PostAuthRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)

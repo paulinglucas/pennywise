@@ -76,11 +76,9 @@ func (r *DashboardRepository) GetNetWorth(ctx context.Context, userID string) (N
 
 	err = r.db.QueryRowContext(ctx,
 		`SELECT COALESCE(SUM(
-		   COALESCE(g.current_amount, a.original_balance, 0)
+		   COALESCE(a.current_balance, a.original_balance, 0)
 		 ), 0)
 		 FROM accounts a
-		 LEFT JOIN goals g ON g.linked_account_id = a.id
-		   AND g.goal_type = 'debt_payoff' AND g.deleted_at IS NULL
 		 WHERE a.user_id = ? AND a.deleted_at IS NULL
 		   AND a.account_type IN ('credit_card', 'mortgage', 'credit_line')`,
 		userID,
@@ -223,6 +221,14 @@ func (r *DashboardRepository) getHistoricalPoints(ctx context.Context, userID st
 		     AND ac.account_type IN ('checking', 'savings', 'other')
 		     AND t.date >= ?
 		 ),
+		 debt_snap_dates AS (
+		   SELECT DISTINCT DATE(abh.recorded_at) as snap_date
+		   FROM account_balance_history abh
+		   JOIN accounts a ON a.id = abh.account_id
+		   WHERE a.user_id = ? AND a.deleted_at IS NULL
+		     AND a.account_type IN ('credit_card', 'mortgage', 'credit_line')
+		     AND abh.recorded_at >= ?
+		 ),
 		 since_date AS (
 		   SELECT ? as snap_date WHERE ? = 1
 		 ),
@@ -232,6 +238,8 @@ func (r *DashboardRepository) getHistoricalPoints(ctx context.Context, userID st
 		   SELECT snap_date FROM asset_snap_dates
 		   UNION
 		   SELECT snap_date FROM txn_dates
+		   UNION
+		   SELECT snap_date FROM debt_snap_dates
 		 )
 		 SELECT
 		   ad.snap_date,
@@ -256,17 +264,21 @@ func (r *DashboardRepository) getHistoricalPoints(ctx context.Context, userID st
 		           AND t.date <= ad.snap_date
 		       ), 0)
 		     - COALESCE((
-		         SELECT SUM(COALESCE(g.current_amount, a2.original_balance, 0))
+		         SELECT SUM(COALESCE(
+		           (SELECT abh.balance FROM account_balance_history abh
+		            WHERE abh.account_id = a2.id AND DATE(abh.recorded_at) <= ad.snap_date
+		            ORDER BY abh.recorded_at DESC LIMIT 1),
+		           a2.original_balance,
+		           0
+		         ))
 		         FROM accounts a2
-		         LEFT JOIN goals g ON g.linked_account_id = a2.id
-		           AND g.goal_type = 'debt_payoff' AND g.deleted_at IS NULL
 		         WHERE a2.user_id = ? AND a2.deleted_at IS NULL
 		           AND a2.account_type IN ('credit_card', 'mortgage', 'credit_line')
 		       ), 0)
 		   as net_worth
 		 FROM all_dates ad
 		 ORDER BY ad.snap_date ASC`,
-		userID, sinceStr, userID, sinceStr, sinceStr, includeSince, userID, userID, userID,
+		userID, sinceStr, userID, sinceStr, userID, sinceStr, sinceStr, includeSince, userID, userID, userID,
 	)
 	if err != nil {
 		return nil, err

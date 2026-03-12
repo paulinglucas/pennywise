@@ -1,6 +1,8 @@
 package observability_test
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -107,6 +109,67 @@ func TestRecordFailedRequest_DoesNotPanic(t *testing.T) {
 	observability.RecordFailedRequest("VALIDATION_FAILED")
 }
 
+func TestMetricsMiddleware_DefaultStatusIs200(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	})
+	handler := observability.MetricsMiddleware(inner)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/default-status", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestMetricsMiddleware_StatusCodes(t *testing.T) {
+	codes := []int{
+		http.StatusCreated,
+		http.StatusNoContent,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusServiceUnavailable,
+	}
+
+	for _, code := range codes {
+		code := code
+		inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(code)
+		})
+		handler := observability.MetricsMiddleware(inner)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/status-test", nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		assert.Equal(t, code, rec.Code)
+	}
+}
+
+func TestMetricsMiddleware_DifferentMethods(t *testing.T) {
+	methods := []string{
+		http.MethodGet,
+		http.MethodPost,
+		http.MethodPut,
+		http.MethodDelete,
+		http.MethodPatch,
+	}
+
+	for _, method := range methods {
+		inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+		handler := observability.MetricsMiddleware(inner)
+
+		req := httptest.NewRequest(method, "/api/v1/method-test", nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+	}
+}
+
 func TestMetricsHandler_ContainsCustomMetrics(t *testing.T) {
 	observability.RecordDBQuery("test_get_accounts", 50*time.Millisecond)
 	observability.RecordFailedRequest("TEST_ERROR")
@@ -119,4 +182,30 @@ func TestMetricsHandler_ContainsCustomMetrics(t *testing.T) {
 	body := rec.Body.String()
 	assert.True(t, strings.Contains(body, "db_query_duration_seconds"))
 	assert.True(t, strings.Contains(body, "failed_requests_total"))
+}
+
+func TestInitTracer_ReturnsShutdownFunc(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(&strings.Builder{}, nil))
+	var traceOutput strings.Builder
+
+	shutdown, err := observability.InitTracer(logger, &traceOutput)
+	assert.NoError(t, err)
+	assert.NotNil(t, shutdown)
+
+	ctx := context.Background()
+	err = shutdown(ctx)
+	assert.NoError(t, err)
+}
+
+func TestStartSpan_ReturnsSpan(t *testing.T) {
+	ctx := context.Background()
+	spanCtx, span := observability.StartSpan(ctx, "test-span")
+	assert.NotNil(t, spanCtx)
+	assert.NotNil(t, span)
+	span.End()
+}
+
+func TestTracer_ReturnsTracer(t *testing.T) {
+	tracer := observability.Tracer()
+	assert.NotNil(t, tracer)
 }

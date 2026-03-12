@@ -348,6 +348,127 @@ func TestDeleteAccount_NotFound_Returns404(t *testing.T) {
 	assert.Equal(t, api.NOTFOUND, resp.Error.Code)
 }
 
+func TestCreateAccount_MissingInstitution_Returns400(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"No Institution","account_type":"checking"}`
+	req := authedRequest(http.MethodPost, "/api/v1/accounts", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestCreateAccount_EmptyName_Returns400(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"","institution":"Chase","account_type":"checking"}`
+	req := authedRequest(http.MethodPost, "/api/v1/accounts", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestUpdateAccount_OtherUser_Returns404(t *testing.T) {
+	t.Parallel()
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO users (id, email, name, password_hash) VALUES (?, ?, ?, ?)`,
+		"usr00002-0000-0000-0000-000000000002", "alex@example.com", "Alex", "$2a$10$dummy",
+	)
+	require.NoError(t, err)
+
+	_, err = database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"acc00030-0000-0000-0000-000000000030", "usr00002-0000-0000-0000-000000000002", "Alex Account", "BofA", "savings", "USD", 1,
+	)
+	require.NoError(t, err)
+
+	body := `{"name":"Hacked"}`
+	req := authedRequest(http.MethodPut, "/api/v1/accounts/acc00030-0000-0000-0000-000000000030", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestListAccounts_Empty(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	req := authedRequest(http.MethodGet, "/api/v1/accounts", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.AccountListResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Len(t, resp.Data, 0)
+	assert.Equal(t, 0, resp.Pagination.Total)
+}
+
+func TestListAccounts_NoAuth_Returns401(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/accounts", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestDeleteAccount_OtherUser_Returns404(t *testing.T) {
+	t.Parallel()
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO users (id, email, name, password_hash) VALUES (?, ?, ?, ?)`,
+		"usr00002-0000-0000-0000-000000000002", "alex@example.com", "Alex", "$2a$10$dummy",
+	)
+	require.NoError(t, err)
+
+	_, err = database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"acc00040-0000-0000-0000-000000000040", "usr00002-0000-0000-0000-000000000002", "Alex Account", "BofA", "savings", "USD", 1,
+	)
+	require.NoError(t, err)
+
+	req := authedRequest(http.MethodDelete, "/api/v1/accounts/acc00040-0000-0000-0000-000000000040", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestCreateAccount_WithBalance(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"Balance Account","institution":"Chase","account_type":"savings","balance":10000,"currency":"USD"}`
+	req := authedRequest(http.MethodPost, "/api/v1/accounts", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.AccountResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, "Balance Account", resp.Name)
+	assert.True(t, resp.IsActive)
+}
+
 func TestListAccounts_Pagination(t *testing.T) {
 	t.Parallel()
 	database, router := setupRouter(t)

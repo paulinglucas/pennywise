@@ -166,6 +166,62 @@ func TestExportCsv_WithNotesAndTags(t *testing.T) {
 	assert.Contains(t, lines[1], "food;social")
 }
 
+func TestExportCsv_NoAuth_Returns401(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/export/csv", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestExportData_UserScoped(t *testing.T) {
+	t.Parallel()
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO users (id, email, name, password_hash) VALUES (?, ?, ?, ?)`,
+		"usr00002-0000-0000-0000-000000000002", "alex@example.com", "Alex", "$2a$10$dummy",
+	)
+	require.NoError(t, err)
+
+	_, err = database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency) VALUES (?, ?, ?, ?, ?, ?)`,
+		"acc00060-0000-0000-0000-000000000060", "usr00002-0000-0000-0000-000000000002", "Alex Checking", "BofA", "checking", "USD",
+	)
+	require.NoError(t, err)
+
+	req := authedRequest(http.MethodGet, "/api/v1/export", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.ExportResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Len(t, resp.Accounts, 0)
+}
+
+func TestExportCsv_EmptyData(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	req := authedRequest(http.MethodGet, "/api/v1/export/csv", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "text/csv", rec.Header().Get("Content-Type"))
+
+	body := rec.Body.String()
+	lines := strings.Split(strings.TrimSpace(body), "\n")
+	assert.Len(t, lines, 1)
+}
+
 func TestExportData_IncludesAllEntityTypes(t *testing.T) {
 	t.Parallel()
 	database, router := setupRouter(t)

@@ -509,14 +509,8 @@ func TestListAssets_LinkedAccountIncluded(t *testing.T) {
 
 	mortgageAccountID := "accf0001-0000-0000-0000-000000000001"
 	_, err := database.ExecContext(context.Background(),
-		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		mortgageAccountID, assetUserID, "Rocket Mortgage", "Rocket Mortgage", "mortgage", "USD", 300000.0,
-	)
-	require.NoError(t, err)
-
-	_, err = database.ExecContext(context.Background(),
-		`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, linked_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"g1f00001-0000-0000-0000-000000000001", assetUserID, "Pay off mortgage", "debt_payoff", 300000, 280000, 1, mortgageAccountID,
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance, current_balance) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		mortgageAccountID, assetUserID, "Rocket Mortgage", "Rocket Mortgage", "mortgage", "USD", 300000.0, 280000.0,
 	)
 	require.NoError(t, err)
 
@@ -579,6 +573,203 @@ func TestGetAsset_LinkedAccountIncluded(t *testing.T) {
 	assert.Equal(t, "Fidelity Roth IRA", resp.LinkedAccount.Name)
 	assert.Equal(t, api.AccountTypeRetirementRothIra, resp.LinkedAccount.AccountType)
 	assert.Nil(t, resp.LinkedAccount.Balance)
+}
+
+func TestUpdateAsset_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	createBody := `{"name":"For Update","asset_type":"liquid","current_value":5000}`
+	createReq := authedRequest(http.MethodPost, "/api/v1/assets", createBody, cookie)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created api.AssetResponse
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+
+	updateReq := authedRequest(http.MethodPut, fmt.Sprintf("/api/v1/assets/%s", created.Id), "not json", cookie)
+	updateRec := httptest.NewRecorder()
+	router.ServeHTTP(updateRec, updateReq)
+
+	assert.Equal(t, http.StatusBadRequest, updateRec.Code)
+}
+
+func TestUpdateAsset_AllFields(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	createBody := `{"name":"Original Asset","asset_type":"liquid","current_value":5000}`
+	createReq := authedRequest(http.MethodPost, "/api/v1/assets", createBody, cookie)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created api.AssetResponse
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+
+	updateBody := `{"name":"Renamed Asset","asset_type":"retirement","current_value":75000,"currency":"EUR","metadata":{"broker":"Fidelity"}}`
+	updateReq := authedRequest(http.MethodPut, fmt.Sprintf("/api/v1/assets/%s", created.Id), updateBody, cookie)
+	updateRec := httptest.NewRecorder()
+	router.ServeHTTP(updateRec, updateReq)
+
+	assert.Equal(t, http.StatusOK, updateRec.Code)
+
+	var resp api.AssetResponse
+	require.NoError(t, json.Unmarshal(updateRec.Body.Bytes(), &resp))
+	assert.Equal(t, "Renamed Asset", resp.Name)
+	assert.Equal(t, api.AssetTypeRetirement, resp.AssetType)
+	assert.Equal(t, float32(75000), resp.CurrentValue)
+	assert.Equal(t, api.EUR, resp.Currency)
+	require.NotNil(t, resp.Metadata)
+	assert.Contains(t, *resp.Metadata, "broker")
+}
+
+func TestCreateAsset_NameEmpty_Returns400(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"","asset_type":"liquid","current_value":5000}`
+	req := authedRequest(http.MethodPost, "/api/v1/assets", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestGetAssetHistory_WithPeriod(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	createBody := `{"name":"Period Test","asset_type":"liquid","current_value":10000}`
+	createReq := authedRequest(http.MethodPost, "/api/v1/assets", createBody, cookie)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created api.AssetResponse
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+
+	periods := []string{"1m", "3m", "6m", "1y", "all"}
+	for _, p := range periods {
+		req := authedRequest(http.MethodGet, fmt.Sprintf("/api/v1/assets/%s/history?period=%s", created.Id, p), "", cookie)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		assert.Equal(t, http.StatusOK, rec.Code, "period=%s", p)
+	}
+}
+
+func TestDeleteAsset_OtherUser_Returns404(t *testing.T) {
+	t.Parallel()
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO users (id, email, name, password_hash) VALUES (?, ?, ?, ?)`,
+		"usr00002-0000-0000-0000-000000000002", "alex@example.com", "Alex", "$2a$10$dummy",
+	)
+	require.NoError(t, err)
+
+	_, err = database.ExecContext(context.Background(),
+		`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
+		"a0000003-0000-0000-0000-000000000003", "usr00002-0000-0000-0000-000000000002", "Alex Asset", "liquid", 5000, "USD",
+	)
+	require.NoError(t, err)
+
+	req := authedRequest(http.MethodDelete, "/api/v1/assets/a0000003-0000-0000-0000-000000000003", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestCreateAsset_WithCurrency(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"Euro Fund","asset_type":"brokerage","current_value":25000,"currency":"EUR"}`
+	req := authedRequest(http.MethodPost, "/api/v1/assets", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.AssetResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, api.EUR, resp.Currency)
+}
+
+func TestGetAssetAllocation_WithPeriod(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	body := `{"name":"Alloc Test","asset_type":"liquid","current_value":10000}`
+	createReq := authedRequest(http.MethodPost, "/api/v1/assets", body, cookie)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	periods := []string{"1m", "3m", "6m", "1y", "all"}
+	for _, p := range periods {
+		req := authedRequest(http.MethodGet, "/api/v1/assets/allocation?period="+p, "", cookie)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		assert.Equal(t, http.StatusOK, rec.Code, "period=%s", p)
+	}
+}
+
+func TestCreateAsset_WithAccountID(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+	accountID := createTestAccount(t, router, cookie)
+
+	body := fmt.Sprintf(`{"name":"Linked Asset","asset_type":"brokerage","current_value":30000,"account_id":"%s"}`, accountID)
+	req := authedRequest(http.MethodPost, "/api/v1/assets", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.AssetResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, "Linked Asset", resp.Name)
+	require.NotNil(t, resp.AccountId)
+	assert.Equal(t, accountID, resp.AccountId.String())
+}
+
+func TestUpdateAsset_WithAccountID(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+	accountID := createTestAccount(t, router, cookie)
+
+	createBody := `{"name":"No Link","asset_type":"liquid","current_value":5000}`
+	createReq := authedRequest(http.MethodPost, "/api/v1/assets", createBody, cookie)
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, createReq)
+	require.Equal(t, http.StatusCreated, createRec.Code)
+
+	var created api.AssetResponse
+	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+
+	updateBody := fmt.Sprintf(`{"account_id":"%s"}`, accountID)
+	updateReq := authedRequest(http.MethodPut, fmt.Sprintf("/api/v1/assets/%s", created.Id), updateBody, cookie)
+	updateRec := httptest.NewRecorder()
+	router.ServeHTTP(updateRec, updateReq)
+
+	assert.Equal(t, http.StatusOK, updateRec.Code)
+
+	var resp api.AssetResponse
+	require.NoError(t, json.Unmarshal(updateRec.Body.Bytes(), &resp))
+	require.NotNil(t, resp.AccountId)
+	assert.Equal(t, accountID, resp.AccountId.String())
 }
 
 func TestListAssets_NoLinkedAccountWhenNotLinked(t *testing.T) {

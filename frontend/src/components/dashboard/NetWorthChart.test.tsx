@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import NetWorthChart from "./NetWorthChart";
@@ -60,5 +60,33 @@ describe("NetWorthChart", () => {
 
     const rows = screen.getAllByRole("row");
     expect(rows.length).toBe(mockDataPoints.length + 1);
+  });
+
+  it("renders chart with 1m period", () => {
+    render(<NetWorthChart dataPoints={mockDataPoints} period="1m" onPeriodChange={vi.fn()} />);
+    expect(screen.getByText("Net Worth Over Time")).toBeInTheDocument();
+  });
+
+  it("renders chart with 5y period", () => {
+    render(<NetWorthChart dataPoints={mockDataPoints} period="5y" onPeriodChange={vi.fn()} />);
+    expect(screen.getByText("Net Worth Over Time")).toBeInTheDocument();
+  });
+
+  it("renders chart with all period", () => {
+    render(<NetWorthChart dataPoints={mockDataPoints} period="all" onPeriodChange={vi.fn()} />);
+    expect(screen.getByText("Net Worth Over Time")).toBeInTheDocument();
+  });
+
+  it("renders chart with a single data point", () => {
+    render(
+      <NetWorthChart
+        dataPoints={[{ date: "2025-01-01", value: 100000 }]}
+        period="1y"
+        onPeriodChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Net Worth Over Time")).toBeInTheDocument();
+    const rows = screen.getAllByRole("row");
+    expect(rows.length).toBe(2);
   });
 });

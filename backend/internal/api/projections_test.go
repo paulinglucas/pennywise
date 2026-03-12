@@ -189,6 +189,67 @@ func TestComputeProjection_MissingRequiredField_Returns400(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
+func TestComputeProjection_WithMonthlySavingsAdjustment(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+	setupDashboardData(t, router, cookie)
+
+	body := `{"years_to_project":5,"monthly_savings_adjustment":50}`
+	req := authedRequest(http.MethodPost, "/api/v1/projections", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.ProjectionResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Len(t, resp.Scenarios, 3)
+}
+
+func TestComputeProjection_NegativeCashFlow(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	accountID := createTestAccount(t, router, cookie)
+
+	txnBody := fmt.Sprintf(`{"account_id":"%s","type":"expense","category":"rent","amount":5000,"date":"2026-03-01"}`, accountID)
+	txnReq := authedRequest(http.MethodPost, "/api/v1/transactions", txnBody, cookie)
+	txnRec := httptest.NewRecorder()
+	router.ServeHTTP(txnRec, txnReq)
+	require.Equal(t, http.StatusCreated, txnRec.Code)
+
+	body := `{"years_to_project":5}`
+	req := authedRequest(http.MethodPost, "/api/v1/projections", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.ProjectionResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Len(t, resp.Scenarios, 3)
+}
+
+func TestComputeProjection_NegativeMonthlySavingsAdjustment(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+	setupDashboardData(t, router, cookie)
+
+	body := `{"years_to_project":5,"monthly_savings_adjustment":-30}`
+	req := authedRequest(http.MethodPost, "/api/v1/projections", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.ProjectionResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Len(t, resp.Scenarios, 3)
+}
+
 func TestComputeProjection_MillionaireDateSet(t *testing.T) {
 	t.Parallel()
 	_, router := setupRouter(t)

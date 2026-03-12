@@ -181,6 +181,207 @@ describe("Settings", () => {
     expect(screen.getByText("Chase Checking")).toBeInTheDocument();
   });
 
+  it("shows sync error when status has sync_error", async () => {
+    const statusWithError = {
+      connected: true,
+      last_sync_at: "2026-03-10T06:00:00Z",
+      sync_error: "Connection timeout",
+      linked_accounts: [],
+    };
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(statusWithError),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(statusWithError),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ accounts: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(accountsList),
+      });
+
+    renderWithProviders(<Settings />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Connection timeout/)).toBeInTheDocument();
+    });
+  });
+
+  it("calls disconnect on confirm", async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(connectedStatus),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(connectedStatus),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(simplefinAccounts),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(accountsList),
+      });
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const user = userEvent.setup();
+    renderWithProviders(<Settings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /disconnect/i })).toBeInTheDocument();
+    });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+      json: () => Promise.resolve(undefined),
+    });
+
+    await user.click(screen.getByRole("button", { name: /disconnect/i }));
+
+    expect(window.confirm).toHaveBeenCalled();
+
+    await waitFor(() => {
+      const calls = mockFetch.mock.calls;
+      const deleteCalls = calls.filter((c: unknown[]) => {
+        const opts = c[1] as RequestInit | undefined;
+        return opts?.method === "DELETE";
+      });
+      expect(deleteCalls.length).toBeGreaterThan(0);
+    });
+
+    vi.restoreAllMocks();
+  });
+
+  it("does not disconnect when confirm is cancelled", async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(connectedStatus),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(connectedStatus),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(simplefinAccounts),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(accountsList),
+      });
+
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    const user = userEvent.setup();
+    renderWithProviders(<Settings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /disconnect/i })).toBeInTheDocument();
+    });
+
+    const callCountBefore = mockFetch.mock.calls.length;
+
+    await user.click(screen.getByRole("button", { name: /disconnect/i }));
+
+    expect(window.confirm).toHaveBeenCalled();
+
+    const deleteCalls = mockFetch.mock.calls.slice(callCountBefore).filter((c: unknown[]) => {
+      const opts = c[1] as RequestInit | undefined;
+      return opts?.method === "DELETE";
+    });
+    expect(deleteCalls).toHaveLength(0);
+
+    vi.restoreAllMocks();
+  });
+
+  it("triggers sync and calls sync endpoint", async () => {
+    mockFetch.mockImplementation((input: string | URL | Request) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : (input as Request).url;
+
+      if (url.includes("/simplefin/sync")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ updated: 3, errors: [] }),
+        });
+      }
+      if (url.includes("/simplefin/accounts")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(simplefinAccounts),
+        });
+      }
+      if (url.includes("/simplefin/status")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(connectedStatus),
+        });
+      }
+      if (url.includes("/accounts")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(accountsList),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({}),
+      });
+    });
+
+    const user = userEvent.setup();
+    renderWithProviders(<Settings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /sync now/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /sync now/i }));
+
+    await waitFor(() => {
+      const calls = mockFetch.mock.calls;
+      const syncCalls = calls.filter((c: unknown[]) => {
+        const url = c[0] as string;
+        return url.includes("/simplefin/sync");
+      });
+      expect(syncCalls.length).toBeGreaterThan(0);
+    });
+  });
+
   it("shows error message when setup fails", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

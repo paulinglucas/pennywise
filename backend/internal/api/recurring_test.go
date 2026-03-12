@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -294,6 +295,81 @@ func TestDeleteRecurring_SoftDeletes(t *testing.T) {
 	).Scan(&deletedAt)
 	require.NoError(t, err)
 	assert.NotNil(t, deletedAt)
+}
+
+func TestCreateRecurring_InvalidJSON_Returns400(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	req := authedRequest(http.MethodPost, "/api/v1/recurring", "not json", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestCreateRecurring_WithCurrency(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+	accountID := createTestAccount(t, router, cookie)
+
+	body := fmt.Sprintf(`{"account_id":"%s","type":"expense","category":"rent","amount":1200,"currency":"EUR","frequency":"monthly","next_occurrence":"2026-04-01"}`, accountID)
+	req := authedRequest(http.MethodPost, "/api/v1/recurring", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	var resp api.RecurringResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, api.EUR, resp.Currency)
+	assert.Equal(t, float32(1200), resp.Amount)
+}
+
+func TestCreateRecurring_NoAuth_Returns401(t *testing.T) {
+	t.Parallel()
+	_, router := setupRouter(t)
+
+	body := `{"type":"expense","category":"rent","amount":1200,"frequency":"monthly","next_occurrence":"2026-04-01","account_id":"a0000001-0000-0000-0000-000000000001"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/recurring", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestDeleteRecurring_OtherUser_Returns404(t *testing.T) {
+	t.Parallel()
+	database, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	_, err := database.ExecContext(context.Background(),
+		`INSERT INTO users (id, email, name, password_hash) VALUES (?, ?, ?, ?)`,
+		"usr00002-0000-0000-0000-000000000002", "alex@example.com", "Alex", "$2a$10$dummy",
+	)
+	require.NoError(t, err)
+
+	_, err = database.ExecContext(context.Background(),
+		`INSERT INTO accounts (id, user_id, name, institution, account_type, currency) VALUES (?, ?, ?, ?, ?, ?)`,
+		"a0000002-0000-0000-0000-000000000002", "usr00002-0000-0000-0000-000000000002", "Alex Account", "Alex Bank", "checking", "USD",
+	)
+	require.NoError(t, err)
+
+	_, err = database.ExecContext(context.Background(),
+		`INSERT INTO recurring_transactions (id, user_id, account_id, type, category, amount, currency, frequency, next_occurrence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"b0000002-0000-0000-0000-000000000002", "usr00002-0000-0000-0000-000000000002",
+		"a0000002-0000-0000-0000-000000000002", "expense", "rent", 1200, "USD", "monthly", "2026-04-01",
+	)
+	require.NoError(t, err)
+
+	req := authedRequest(http.MethodDelete, "/api/v1/recurring/b0000002-0000-0000-0000-000000000002", "", cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
 func TestDeleteRecurring_NotFound_Returns404(t *testing.T) {

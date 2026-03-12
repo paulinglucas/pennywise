@@ -154,4 +154,124 @@ describe("GoalList", () => {
     fireEvent.click(card!);
     expect(onGoalClick).toHaveBeenCalledWith(savingsGoal);
   });
+
+  it("makes goal items draggable", () => {
+    renderWithProviders(
+      <GoalList
+        goals={[debtGoal, debtGoal2]}
+        onGoalClick={vi.fn()}
+        onContribute={vi.fn()}
+        onReorder={vi.fn()}
+      />,
+    );
+    const draggables = document.querySelectorAll("[draggable='true']");
+    expect(draggables.length).toBe(2);
+  });
+
+  it("calls onReorder after drag and drop", () => {
+    const onReorder = vi.fn();
+    renderWithProviders(
+      <GoalList
+        goals={[debtGoal, debtGoal2]}
+        onGoalClick={vi.fn()}
+        onContribute={vi.fn()}
+        onReorder={onReorder}
+      />,
+    );
+
+    const draggables = document.querySelectorAll("[draggable='true']");
+    const source = draggables[0] as HTMLElement;
+    const target = draggables[1] as HTMLElement;
+
+    fireEvent.dragStart(source, { dataTransfer: { effectAllowed: "move" } });
+    fireEvent.dragEnter(target);
+    fireEvent.dragOver(target, { dataTransfer: { dropEffect: "move" } });
+    fireEvent.drop(target);
+
+    expect(onReorder).toHaveBeenCalledWith({
+      rankings: [
+        { id: "d2", priority_rank: 1 },
+        { id: "d1", priority_rank: 2 },
+      ],
+    });
+  });
+
+  it("resets drag state on dragEnd", () => {
+    const onReorder = vi.fn();
+    renderWithProviders(
+      <GoalList
+        goals={[debtGoal, debtGoal2]}
+        onGoalClick={vi.fn()}
+        onContribute={vi.fn()}
+        onReorder={onReorder}
+      />,
+    );
+
+    const draggables = document.querySelectorAll("[draggable='true']");
+    const source = draggables[0] as HTMLElement;
+
+    fireEvent.dragStart(source, { dataTransfer: { effectAllowed: "move" } });
+    fireEvent.dragEnd(source);
+
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it("does not call onGoalClick while dragging", () => {
+    const onGoalClick = vi.fn();
+    renderWithProviders(
+      <GoalList
+        goals={[savingsGoal]}
+        onGoalClick={onGoalClick}
+        onContribute={vi.fn()}
+        onReorder={vi.fn()}
+      />,
+    );
+
+    const draggable = document.querySelector("[draggable='true']") as HTMLElement;
+    fireEvent.dragStart(draggable, { dataTransfer: { effectAllowed: "move" } });
+
+    const card = screen.getByText("Emergency Fund").closest("[role='button']");
+    fireEvent.click(card!);
+
+    expect(onGoalClick).not.toHaveBeenCalled();
+  });
+
+  it("handles drag leave correctly", () => {
+    renderWithProviders(
+      <GoalList
+        goals={[debtGoal, debtGoal2]}
+        onGoalClick={vi.fn()}
+        onContribute={vi.fn()}
+        onReorder={vi.fn()}
+      />,
+    );
+
+    const draggables = document.querySelectorAll("[draggable='true']");
+    const source = draggables[0] as HTMLElement;
+    const target = draggables[1] as HTMLElement;
+
+    fireEvent.dragStart(source, { dataTransfer: { effectAllowed: "move" } });
+    fireEvent.dragEnter(target);
+    fireEvent.dragLeave(target);
+  });
+
+  it("does not reorder when dropping on same position", () => {
+    const onReorder = vi.fn();
+    renderWithProviders(
+      <GoalList
+        goals={[debtGoal, debtGoal2]}
+        onGoalClick={vi.fn()}
+        onContribute={vi.fn()}
+        onReorder={onReorder}
+      />,
+    );
+
+    const draggables = document.querySelectorAll("[draggable='true']");
+    const source = draggables[0] as HTMLElement;
+
+    fireEvent.dragStart(source, { dataTransfer: { effectAllowed: "move" } });
+    fireEvent.drop(source);
+
+    expect(onReorder).not.toHaveBeenCalled();
+  });
 });
