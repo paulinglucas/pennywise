@@ -127,9 +127,11 @@ export default function AssetSparkline({
 
     const timestamps = timeData.map((d) => d.timestamp);
     const dataMinTs = Math.min(...timestamps);
-    const [domainMin, domainMax] = domainForPeriod(period, dataMinTs);
+    const [periodMin, domainMax] = domainForPeriod(period, dataMinTs);
+    const domainMin = Math.max(periodMin, dataMinTs);
+    const filteredData = timeData.filter((d) => d.timestamp >= periodMin);
 
-    return { timeData, domainMin, domainMax };
+    return { timeData: filteredData, domainMin, domainMax };
   }, [entries, currentValue, period, mountTime]);
 
   if (!chartData) return null;

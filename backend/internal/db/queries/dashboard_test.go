@@ -44,12 +44,7 @@ func TestGetNetWorth_WithCashAccounts(t *testing.T) {
 	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00001-0000-0000-0000-000000000001", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"deposit", "income", 5000, "USD", "2026-03-01")
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00002-0000-0000-0000-000000000002", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"expense", "food", 500, "USD", "2026-03-05")
+	exec(`UPDATE accounts SET current_balance = 4500 WHERE id = ?`, "acct0001-0000-0000-0000-000000000001")
 
 	result, err := repo.GetNetWorth(context.Background(), dashboardUserID)
 	require.NoError(t, err)
@@ -216,7 +211,11 @@ func TestGetDebtsSummary(t *testing.T) {
 
 	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		"txn00001-0000-0000-0000-000000000001", dashboardUserID, "acct0002-0000-0000-0000-000000000002",
-		"expense", "credit_payment", 500, "USD", "2026-03-05")
+		"deposit", "transfer", 500, "USD", "2026-03-05")
+
+	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"txn00010-0000-0000-0000-000000000010", dashboardUserID, "acct0002-0000-0000-0000-000000000002",
+		"expense", "food", 200, "USD", "2026-03-06")
 
 	debts, err := repo.GetDebtsSummary(context.Background(), dashboardUserID, now)
 	require.NoError(t, err)
@@ -294,6 +293,8 @@ func TestGetNetWorthHistory_IncludesCashAndDebts(t *testing.T) {
 	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
+	exec(`UPDATE accounts SET current_balance = 9000 WHERE id = ?`, "acct0001-0000-0000-0000-000000000001")
+
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
 		"ast00001-0000-0000-0000-000000000001", dashboardUserID, "House", "real_estate", 300000, "USD")
 
@@ -302,15 +303,10 @@ func TestGetNetWorthHistory_IncludesCashAndDebts(t *testing.T) {
 	exec(`INSERT INTO asset_history (id, asset_id, value, recorded_at) VALUES (?, ?, ?, ?)`,
 		"ah000002-0000-0000-0000-000000000002", "ast00001-0000-0000-0000-000000000001", 295000, "2026-02-01")
 
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00001-0000-0000-0000-000000000001", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"deposit", "income", 5000, "USD", "2025-12-15")
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00002-0000-0000-0000-000000000002", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"deposit", "income", 5000, "USD", "2026-01-15")
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00003-0000-0000-0000-000000000003", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"expense", "food", 1000, "USD", "2026-01-20")
+	exec(`INSERT INTO account_balance_history (id, account_id, balance, recorded_at) VALUES (?, ?, ?, ?)`,
+		"abh00010-0000-0000-0000-000000000010", "acct0001-0000-0000-0000-000000000001", 5000, "2025-12-15")
+	exec(`INSERT INTO account_balance_history (id, account_id, balance, recorded_at) VALUES (?, ?, ?, ?)`,
+		"abh00011-0000-0000-0000-000000000011", "acct0001-0000-0000-0000-000000000001", 9000, "2026-01-15")
 
 	exec(`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, original_balance, current_balance, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		"acct0002-0000-0000-0000-000000000002", dashboardUserID, "Mortgage", "Bank", "mortgage", "USD", 300000, 200000, "2025-01-01")
@@ -322,10 +318,15 @@ func TestGetNetWorthHistory_IncludesCashAndDebts(t *testing.T) {
 	points, err := repo.GetNetWorthHistory(context.Background(), dashboardUserID, since, true)
 	require.NoError(t, err)
 
+	require.GreaterOrEqual(t, len(points), 3)
+	assert.Equal(t, "2026-01-01", points[0].Date.Format("2006-01-02"))
 	assert.Equal(t, 95000.0, points[0].Value)
-	assert.Equal(t, 100000.0, points[1].Value)
-	assert.Equal(t, 99000.0, points[2].Value)
-	assert.Equal(t, 104000.0, points[3].Value)
+
+	assert.Equal(t, "2026-01-15", points[1].Date.Format("2006-01-02"))
+	assert.Equal(t, 99000.0, points[1].Value)
+
+	assert.Equal(t, "2026-02-01", points[2].Date.Format("2006-01-02"))
+	assert.Equal(t, 104000.0, points[2].Value)
 }
 
 func TestGetNetWorthHistory_DebtConsistentAcrossAllDates(t *testing.T) {
@@ -395,16 +396,11 @@ func TestGetNetWorthHistory_AlwaysIncludesToday(t *testing.T) {
 	assert.Equal(t, 75000.0, points[1].Value)
 }
 
-func TestGetNetWorth_TransferReducesCash(t *testing.T) {
+func TestGetNetWorth_UsesCurrentBalance(t *testing.T) {
 	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00001-0000-0000-0000-000000000001", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"deposit", "income", 5000, "USD", "2026-03-01")
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00002-0000-0000-0000-000000000002", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"transfer", "credit_card_payment", 1500, "USD", "2026-03-10")
+	exec(`UPDATE accounts SET current_balance = 3500 WHERE id = ?`, "acct0001-0000-0000-0000-000000000001")
 
 	result, err := repo.GetNetWorth(context.Background(), dashboardUserID)
 	require.NoError(t, err)
@@ -451,9 +447,11 @@ func TestGetSpendingByCategory_ExcludesTransfers(t *testing.T) {
 	assert.Equal(t, 300.0, spending[0].Amount)
 }
 
-func TestGetNetWorthHistory_TransferReducesCash(t *testing.T) {
+func TestGetNetWorthHistory_CashUsesBalanceHistory(t *testing.T) {
 	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
+
+	exec(`UPDATE accounts SET current_balance = 3500 WHERE id = ?`, "acct0001-0000-0000-0000-000000000001")
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
 		"ast00001-0000-0000-0000-000000000001", dashboardUserID, "Brokerage", "brokerage", 50000, "USD")
@@ -461,22 +459,20 @@ func TestGetNetWorthHistory_TransferReducesCash(t *testing.T) {
 	exec(`INSERT INTO asset_history (id, asset_id, value, recorded_at) VALUES (?, ?, ?, ?)`,
 		"ah000001-0000-0000-0000-000000000001", "ast00001-0000-0000-0000-000000000001", 50000, "2026-03-01")
 
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00001-0000-0000-0000-000000000001", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"deposit", "income", 5000, "USD", "2026-03-01")
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00002-0000-0000-0000-000000000002", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"transfer", "credit_card_payment", 1500, "USD", "2026-03-10")
+	exec(`INSERT INTO account_balance_history (id, account_id, balance, recorded_at) VALUES (?, ?, ?, ?)`,
+		"abh00001-0000-0000-0000-000000000001", "acct0001-0000-0000-0000-000000000001", 5000, "2026-03-01")
+	exec(`INSERT INTO account_balance_history (id, account_id, balance, recorded_at) VALUES (?, ?, ?, ?)`,
+		"abh00002-0000-0000-0000-000000000002", "acct0001-0000-0000-0000-000000000001", 3500, "2026-03-10")
 
 	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	points, err := repo.GetNetWorthHistory(context.Background(), dashboardUserID, since, true)
 	require.NoError(t, err)
 
-	assert.Equal(t, 55000.0, points[0].Value)
 	assert.Equal(t, "2026-03-01", points[0].Date.Format("2006-01-02"))
+	assert.Equal(t, 55000.0, points[0].Value)
 
-	assert.Equal(t, 53500.0, points[1].Value)
 	assert.Equal(t, "2026-03-10", points[1].Date.Format("2006-01-02"))
+	assert.Equal(t, 53500.0, points[1].Value)
 }
 
 func TestGetDebtsSummary_TransferCountsAsPayment(t *testing.T) {
@@ -492,15 +488,79 @@ func TestGetDebtsSummary_TransferCountsAsPayment(t *testing.T) {
 
 	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		"txn00001-0000-0000-0000-000000000001", dashboardUserID, "acct0002-0000-0000-0000-000000000002",
-		"expense", "credit_payment", 500, "USD", "2026-03-05")
+		"deposit", "transfer", 500, "USD", "2026-03-05")
 	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00002-0000-0000-0000-000000000002", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"transfer", "credit_card_payment", 500, "USD", "2026-03-05")
+		"txn00002-0000-0000-0000-000000000002", dashboardUserID, "acct0002-0000-0000-0000-000000000002",
+		"expense", "dining", 200, "USD", "2026-03-06")
 
 	debts, err := repo.GetDebtsSummary(context.Background(), dashboardUserID, now)
 	require.NoError(t, err)
 	require.Len(t, debts, 1)
 	assert.Equal(t, 500.0, debts[0].MonthlyPayment)
+}
+
+func TestGetDebtsSummary_ExcludesChargesFromPayment(t *testing.T) {
+	t.Parallel()
+	repo, exec := setupDashboardTestDB(t)
+	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+
+	exec(`INSERT INTO accounts (id, user_id, name, institution, account_type, currency) VALUES (?, ?, ?, ?, ?, ?)`,
+		"acct0002-0000-0000-0000-000000000002", dashboardUserID, "Credit Card", "Chase", "credit_card", "USD")
+
+	exec(`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, priority_rank, linked_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"goal0001-0000-0000-0000-000000000001", dashboardUserID, "Pay off CC", "debt_payoff", 5000, 3000, 1, "acct0002-0000-0000-0000-000000000002")
+
+	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"txn00001-0000-0000-0000-000000000001", dashboardUserID, "acct0002-0000-0000-0000-000000000002",
+		"expense", "dining", 300, "USD", "2026-03-05")
+
+	debts, err := repo.GetDebtsSummary(context.Background(), dashboardUserID, now)
+	require.NoError(t, err)
+	require.Len(t, debts, 1)
+	assert.Equal(t, 0.0, debts[0].MonthlyPayment)
+}
+
+func TestGetSpendingByCategory_ExcludesExpenseTypedTransfers(t *testing.T) {
+	t.Parallel()
+	repo, exec := setupDashboardTestDB(t)
+	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	until := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+
+	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"txn00001-0000-0000-0000-000000000001", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
+		"expense", "groceries", 200, "USD", "2026-03-01")
+	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"txn00002-0000-0000-0000-000000000002", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
+		"expense", "transfer", 1500, "USD", "2026-03-10")
+	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"txn00003-0000-0000-0000-000000000003", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
+		"expense", "cash", 100, "USD", "2026-03-12")
+
+	spending, err := repo.GetSpendingByCategory(context.Background(), dashboardUserID, since, until)
+	require.NoError(t, err)
+	require.Len(t, spending, 1)
+	assert.Equal(t, "groceries", spending[0].Category)
+	assert.Equal(t, 200.0, spending[0].Amount)
+}
+
+func TestGetCashFlowThisMonth_ExcludesExpenseTypedTransfers(t *testing.T) {
+	t.Parallel()
+	repo, exec := setupDashboardTestDB(t)
+	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+
+	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"txn00001-0000-0000-0000-000000000001", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
+		"deposit", "salary", 5000, "USD", "2026-03-01")
+	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"txn00002-0000-0000-0000-000000000002", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
+		"expense", "groceries", 300, "USD", "2026-03-05")
+	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"txn00003-0000-0000-0000-000000000003", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
+		"expense", "transfer", 1500, "USD", "2026-03-10")
+
+	cashFlow, err := repo.GetCashFlowThisMonth(context.Background(), dashboardUserID, now)
+	require.NoError(t, err)
+	assert.Equal(t, 4700.0, cashFlow)
 }
 
 func TestGetNetWorthHistory_PerAssetCarryForward(t *testing.T) {
@@ -536,9 +596,11 @@ func TestGetNetWorthHistory_PerAssetCarryForward(t *testing.T) {
 	assert.Equal(t, 88000.0, points[3].Value)
 }
 
-func TestGetNetWorthHistory_TransactionDatesCreateDataPoints(t *testing.T) {
+func TestGetNetWorthHistory_BalanceHistoryDatesCreateDataPoints(t *testing.T) {
 	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
+
+	exec(`UPDATE accounts SET current_balance = 4500 WHERE id = ?`, "acct0001-0000-0000-0000-000000000001")
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
 		"ast00001-0000-0000-0000-000000000001", dashboardUserID, "Brokerage", "brokerage", 50000, "USD")
@@ -546,15 +608,12 @@ func TestGetNetWorthHistory_TransactionDatesCreateDataPoints(t *testing.T) {
 	exec(`INSERT INTO asset_history (id, asset_id, value, recorded_at) VALUES (?, ?, ?, ?)`,
 		"ah000001-0000-0000-0000-000000000001", "ast00001-0000-0000-0000-000000000001", 50000, "2026-03-01")
 
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00001-0000-0000-0000-000000000001", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"deposit", "income", 5000, "USD", "2026-03-01")
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00002-0000-0000-0000-000000000002", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"expense", "food", 200, "USD", "2026-03-05")
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00003-0000-0000-0000-000000000003", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"expense", "food", 300, "USD", "2026-03-10")
+	exec(`INSERT INTO account_balance_history (id, account_id, balance, recorded_at) VALUES (?, ?, ?, ?)`,
+		"abh00001-0000-0000-0000-000000000001", "acct0001-0000-0000-0000-000000000001", 5000, "2026-03-01")
+	exec(`INSERT INTO account_balance_history (id, account_id, balance, recorded_at) VALUES (?, ?, ?, ?)`,
+		"abh00002-0000-0000-0000-000000000002", "acct0001-0000-0000-0000-000000000001", 4800, "2026-03-05")
+	exec(`INSERT INTO account_balance_history (id, account_id, balance, recorded_at) VALUES (?, ?, ?, ?)`,
+		"abh00003-0000-0000-0000-000000000003", "acct0001-0000-0000-0000-000000000001", 4500, "2026-03-10")
 
 	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	points, err := repo.GetNetWorthHistory(context.Background(), dashboardUserID, since, true)
@@ -571,29 +630,19 @@ func TestGetNetWorthHistory_TransactionDatesCreateDataPoints(t *testing.T) {
 	assert.Equal(t, 54500.0, points[2].Value)
 }
 
-func TestGetNetWorthHistory_CreditCardExpensesNotInCash(t *testing.T) {
+func TestGetNetWorth_CreditCardExpensesNotInCash(t *testing.T) {
 	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
 
-	exec(`INSERT INTO accounts (id, user_id, name, institution, account_type, currency) VALUES (?, ?, ?, ?, ?, ?)`,
-		"acct0002-0000-0000-0000-000000000002", dashboardUserID, "Amex", "Amex", "credit_card", "USD")
+	exec(`UPDATE accounts SET current_balance = 5000 WHERE id = ?`, "acct0001-0000-0000-0000-000000000001")
 
-	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
-		"ast00001-0000-0000-0000-000000000001", dashboardUserID, "Brokerage", "brokerage", 50000, "USD")
-
-	exec(`INSERT INTO asset_history (id, asset_id, value, recorded_at) VALUES (?, ?, ?, ?)`,
-		"ah000001-0000-0000-0000-000000000001", "ast00001-0000-0000-0000-000000000001", 50000, "2026-03-01")
-
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00001-0000-0000-0000-000000000001", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"deposit", "income", 5000, "USD", "2026-03-01")
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00002-0000-0000-0000-000000000002", dashboardUserID, "acct0002-0000-0000-0000-000000000002",
-		"expense", "food", 1000, "USD", "2026-03-05")
+	exec(`INSERT INTO accounts (id, user_id, name, institution, account_type, currency, current_balance) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"acct0002-0000-0000-0000-000000000002", dashboardUserID, "Amex", "Amex", "credit_card", "USD", 1000)
 
 	result, err := repo.GetNetWorth(context.Background(), dashboardUserID)
 	require.NoError(t, err)
 	assert.Equal(t, 5000.0, result.CashTotal)
+	assert.Equal(t, 1000.0, result.DebtTotal)
 }
 
 func TestGetSpendingByCategory_IncludesCreditCardExpenses(t *testing.T) {
@@ -652,9 +701,11 @@ func TestGetNetWorthHistory_MultipleAssetsWithDifferentSnapshotFrequencies(t *te
 	assert.Equal(t, 121000.0, points[1].Value)
 }
 
-func TestGetNetWorthHistory_TransferAndExpenseCombined(t *testing.T) {
+func TestGetNetWorthHistory_MultipleCashSnapshots(t *testing.T) {
 	t.Parallel()
 	repo, exec := setupDashboardTestDB(t)
+
+	exec(`UPDATE accounts SET current_balance = 3800 WHERE id = ?`, "acct0001-0000-0000-0000-000000000001")
 
 	exec(`INSERT INTO assets (id, user_id, name, asset_type, current_value, currency) VALUES (?, ?, ?, ?, ?, ?)`,
 		"ast00001-0000-0000-0000-000000000001", dashboardUserID, "Brokerage", "brokerage", 50000, "USD")
@@ -662,15 +713,12 @@ func TestGetNetWorthHistory_TransferAndExpenseCombined(t *testing.T) {
 	exec(`INSERT INTO asset_history (id, asset_id, value, recorded_at) VALUES (?, ?, ?, ?)`,
 		"ah000001-0000-0000-0000-000000000001", "ast00001-0000-0000-0000-000000000001", 50000, "2026-03-01")
 
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00001-0000-0000-0000-000000000001", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"deposit", "income", 5000, "USD", "2026-03-01")
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00002-0000-0000-0000-000000000002", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"expense", "food", 200, "USD", "2026-03-05")
-	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"txn00003-0000-0000-0000-000000000003", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
-		"transfer", "credit_card_payment", 1000, "USD", "2026-03-10")
+	exec(`INSERT INTO account_balance_history (id, account_id, balance, recorded_at) VALUES (?, ?, ?, ?)`,
+		"abh00001-0000-0000-0000-000000000001", "acct0001-0000-0000-0000-000000000001", 5000, "2026-03-01")
+	exec(`INSERT INTO account_balance_history (id, account_id, balance, recorded_at) VALUES (?, ?, ?, ?)`,
+		"abh00002-0000-0000-0000-000000000002", "acct0001-0000-0000-0000-000000000001", 4800, "2026-03-05")
+	exec(`INSERT INTO account_balance_history (id, account_id, balance, recorded_at) VALUES (?, ?, ?, ?)`,
+		"abh00003-0000-0000-0000-000000000003", "acct0001-0000-0000-0000-000000000001", 3800, "2026-03-10")
 
 	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	points, err := repo.GetNetWorthHistory(context.Background(), dashboardUserID, since, true)
@@ -699,6 +747,29 @@ func TestGetNetWorthHistory_TodayPointReplacesExisting(t *testing.T) {
 	lastPoint := points[len(points)-1]
 	assert.Equal(t, today, lastPoint.Date.Format("2006-01-02"))
 	assert.Equal(t, 60000.0, lastPoint.Value)
+}
+
+func TestGetCashFlowThisMonth_ExcludesDepositCategoryTransfer(t *testing.T) {
+	t.Parallel()
+	repo, exec := setupDashboardTestDB(t)
+	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+
+	exec(`INSERT INTO accounts (id, user_id, name, institution, account_type, currency) VALUES (?, ?, ?, ?, ?, ?)`,
+		"acct0002-0000-0000-0000-000000000002", dashboardUserID, "Amex", "Amex", "credit_card", "USD")
+
+	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"txn00001-0000-0000-0000-000000000001", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
+		"deposit", "salary", 5000, "USD", "2026-03-01")
+	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"txn00002-0000-0000-0000-000000000002", dashboardUserID, "acct0002-0000-0000-0000-000000000002",
+		"deposit", "transfer", 1200, "USD", "2026-03-10")
+	exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"txn00003-0000-0000-0000-000000000003", dashboardUserID, "acct0001-0000-0000-0000-000000000001",
+		"expense", "food", 300, "USD", "2026-03-05")
+
+	cashFlow, err := repo.GetCashFlowThisMonth(context.Background(), dashboardUserID, now)
+	require.NoError(t, err)
+	assert.Equal(t, 4700.0, cashFlow)
 }
 
 func TestPingDB(t *testing.T) {

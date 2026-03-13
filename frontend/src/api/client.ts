@@ -582,3 +582,15 @@ export function unlinkSimplefinAccount(accountId: string): Promise<void> {
 export function triggerSimplefinSync(): Promise<SimplefinSyncResult> {
   return request<SimplefinSyncResult>("/api/v1/simplefin/sync", { method: "POST" });
 }
+
+type BulkCategorizeBody =
+  paths["/transactions/bulk-categorize"]["patch"]["requestBody"]["content"]["application/json"];
+type BulkCategorizeResult =
+  paths["/transactions/bulk-categorize"]["patch"]["responses"]["200"]["content"]["application/json"];
+
+export function bulkCategorizeTransactions(body: BulkCategorizeBody): Promise<BulkCategorizeResult> {
+  return request<BulkCategorizeResult>("/api/v1/transactions/bulk-categorize", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}

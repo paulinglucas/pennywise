@@ -5,6 +5,7 @@ import {
   updateTransaction,
   deleteTransaction,
   importTransactions,
+  bulkCategorizeTransactions,
   type TransactionFilters,
   type TransactionListResponse,
   type TransactionResponse,
@@ -64,6 +65,22 @@ export function useImportTransactions() {
   const queryClient = useQueryClient();
   return useMutation<ImportResponse, Error, { file: File; accountId: string }>({
     mutationFn: ({ file, accountId }) => importTransactions(file, accountId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+  });
+}
+
+interface BulkCategorizeInput {
+  updates: { transaction_id: string; category: string }[];
+}
+
+export function useBulkCategorize() {
+  const queryClient = useQueryClient();
+  return useMutation<{ updated: number }, Error, BulkCategorizeInput>({
+    mutationFn: bulkCategorizeTransactions,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });

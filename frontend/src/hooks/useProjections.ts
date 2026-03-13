@@ -6,6 +6,7 @@ export interface ProjectionParams {
   monthlySavingsAdjustment: number;
   returnRate: number;
   yearsToProject: number;
+  extraDebtPayment: number;
   oneTimeEvents: Array<{
     amount: number;
     date: string;
@@ -17,6 +18,7 @@ const DEFAULT_PARAMS: ProjectionParams = {
   monthlySavingsAdjustment: 0,
   returnRate: 7,
   yearsToProject: 10,
+  extraDebtPayment: 0,
   oneTimeEvents: [],
 };
 
@@ -26,6 +28,9 @@ function paramsToRequest(params: ProjectionParams): ProjectionRequest {
     monthly_savings_adjustment: params.monthlySavingsAdjustment,
     return_rate: params.returnRate,
   };
+  if (params.extraDebtPayment > 0) {
+    req.extra_debt_payment = params.extraDebtPayment;
+  }
   if (params.oneTimeEvents.length > 0) {
     req.one_time_events = params.oneTimeEvents;
   }

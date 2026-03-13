@@ -279,3 +279,94 @@ func TestComputeProjection_MillionaireDateSet(t *testing.T) {
 	}
 	assert.True(t, hasMillionaireDate, "at least one scenario should have a millionaire date")
 }
+
+func TestComputeProjection_ExtraDebtPayment(t *testing.T) {
+	t.Parallel()
+	db, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+	setupDashboardData(t, router, cookie)
+
+	var userID string
+	err := db.QueryRow(`SELECT id FROM users LIMIT 1`).Scan(&userID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(`INSERT INTO accounts (id, user_id, name, institution, account_type, current_balance, original_balance, interest_rate)
+		VALUES ('debt-acct', ?, 'Credit Card', 'Bank', 'credit_card', 5000, 5000, 18.0)`, userID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, linked_account_id, priority_rank)
+		VALUES ('debt-goal', ?, 'Pay off CC', 'debt_payoff', 5000, 5000, 'debt-acct', 1)`, userID)
+	require.NoError(t, err)
+
+	baseBody := `{"years_to_project":5}`
+	baseReq := authedRequest(http.MethodPost, "/api/v1/projections", baseBody, cookie)
+	baseRec := httptest.NewRecorder()
+	router.ServeHTTP(baseRec, baseReq)
+	require.Equal(t, http.StatusOK, baseRec.Code)
+
+	var baseResp api.ProjectionResponse
+	require.NoError(t, json.Unmarshal(baseRec.Body.Bytes(), &baseResp))
+
+	extraBody := `{"years_to_project":5,"extra_debt_payment":200}`
+	extraReq := authedRequest(http.MethodPost, "/api/v1/projections", extraBody, cookie)
+	extraRec := httptest.NewRecorder()
+	router.ServeHTTP(extraRec, extraReq)
+	require.Equal(t, http.StatusOK, extraRec.Code)
+
+	var extraResp api.ProjectionResponse
+	require.NoError(t, json.Unmarshal(extraRec.Body.Bytes(), &extraResp))
+
+	for i, s := range extraResp.Scenarios {
+		extraFinal := s.DataPoints[len(s.DataPoints)-1].Value
+		baseFinal := baseResp.Scenarios[i].DataPoints[len(baseResp.Scenarios[i].DataPoints)-1].Value
+		assert.GreaterOrEqual(t, extraFinal, baseFinal,
+			"extra debt payments should result in equal or better net worth for %s", s.Scenario)
+	}
+}
+
+func TestComputeProjection_DebtFreeDate(t *testing.T) {
+	t.Parallel()
+	db, router := setupRouter(t)
+	cookie := loginAndGetCookie(t, router)
+
+	accountID := createTestAccount(t, router, cookie)
+
+	txnBody := fmt.Sprintf(`{"account_id":"%s","type":"deposit","category":"salary","amount":5000,"date":"2026-03-01"}`, accountID)
+	txnReq := authedRequest(http.MethodPost, "/api/v1/transactions", txnBody, cookie)
+	txnRec := httptest.NewRecorder()
+	router.ServeHTTP(txnRec, txnReq)
+	require.Equal(t, http.StatusCreated, txnRec.Code)
+
+	var userID string
+	err := db.QueryRow(`SELECT id FROM users LIMIT 1`).Scan(&userID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(`INSERT INTO accounts (id, user_id, name, institution, account_type, current_balance, original_balance, interest_rate)
+		VALUES ('small-debt', ?, 'Small Loan', 'Bank', 'credit_line', 1000, 1000, 5.0)`, userID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, linked_account_id, priority_rank)
+		VALUES ('small-goal', ?, 'Pay off Loan', 'debt_payoff', 1000, 1000, 'small-debt', 1)`, userID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(`INSERT INTO transactions (id, user_id, account_id, type, category, amount, currency, date)
+		VALUES ('debt-txn', ?, 'small-debt', 'expense', 'transfer', 100, 'USD', '2026-03-01')`, userID)
+	require.NoError(t, err)
+
+	body := `{"years_to_project":10,"extra_debt_payment":50}`
+	req := authedRequest(http.MethodPost, "/api/v1/projections", body, cookie)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp api.ProjectionResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+
+	hasDebtFreeDate := false
+	for _, s := range resp.Scenarios {
+		if s.DebtFreeDate != nil {
+			hasDebtFreeDate = true
+		}
+	}
+	assert.True(t, hasDebtFreeDate, "at least one scenario should have a debt free date")
+}

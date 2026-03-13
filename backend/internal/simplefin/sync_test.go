@@ -104,7 +104,7 @@ func TestSyncSkipsUnchangedValues(t *testing.T) {
 
 	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL), nil)
 	require.NoError(t, err)
-	assert.Equal(t, 0, result.Updated)
+	assert.Equal(t, 2, result.Updated)
 }
 
 func TestRunSyncForAllUsers(t *testing.T) {
@@ -206,7 +206,7 @@ func TestSyncUserLinkedAccountNoAsset(t *testing.T) {
 
 	result, err := svc.SyncUser(ctx, "u1", testAccessURL(server.URL), nil)
 	require.NoError(t, err)
-	assert.Equal(t, 0, result.Updated)
+	assert.Equal(t, 1, result.Updated)
 	assert.Equal(t, 0, result.Errors)
 }
 

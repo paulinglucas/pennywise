@@ -260,6 +260,42 @@ func (r *SQLiteTransactionRepository) ListCategories(ctx context.Context, userID
 	return categories, rows.Err()
 }
 
+type CategoryUpdate struct {
+	TransactionID string
+	Category      string
+}
+
+func (r *SQLiteTransactionRepository) BulkCategorize(ctx context.Context, userID string, updates []CategoryUpdate) (int, error) {
+	start := time.Now()
+	defer func() { observability.RecordDBQuery("bulk_categorize_transactions", time.Since(start)) }()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	updated := 0
+	for _, u := range updates {
+		result, err := tx.ExecContext(ctx,
+			`UPDATE transactions SET category = ?, updated_at = datetime('now')
+			 WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
+			u.Category, u.TransactionID, userID,
+		)
+		if err != nil {
+			return updated, err
+		}
+		n, _ := result.RowsAffected()
+		updated += int(n)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+
+	return updated, nil
+}
+
 type BulkCreateError struct {
 	Row     int
 	Message string

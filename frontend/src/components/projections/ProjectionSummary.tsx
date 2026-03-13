@@ -70,6 +70,18 @@ export default function ProjectionSummary({ data }: ProjectionSummaryProps) {
 
             <div className="flex flex-col gap-1">
               <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+                Debt Free By
+              </span>
+              <span
+                className="tabular-nums text-sm font-medium"
+                style={{ color: scenario.debt_free_date ? color : "var(--color-text-secondary)" }}
+              >
+                {formatMillionaireDate(scenario.debt_free_date)}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
                 Millionaire By
               </span>
               <span

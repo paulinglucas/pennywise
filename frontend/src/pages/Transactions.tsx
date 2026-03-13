@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Upload, Split } from "lucide-react";
+import { Plus, Upload, Split, Tag } from "lucide-react";
 import {
   useTransactions,
   useCreateTransaction,
@@ -19,6 +19,7 @@ import TransactionList from "@/components/transactions/TransactionList";
 import TransactionForm from "@/components/transactions/TransactionForm";
 import TransactionGroupForm from "@/components/transactions/TransactionGroupForm";
 import CsvImport from "@/components/transactions/CsvImport";
+import BulkCategorizeModal from "@/components/transactions/BulkCategorizeModal";
 import Modal from "@/components/shared/Modal";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState, { extractRequestId } from "@/components/shared/ErrorState";
@@ -30,6 +31,7 @@ export default function Transactions() {
   const [editingTransaction, setEditingTransaction] = useState<TransactionResponse | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showCategorizeModal, setShowCategorizeModal] = useState(false);
 
   const transactions = useTransactions(filters);
   const accounts = useAccounts();
@@ -74,6 +76,7 @@ export default function Transactions() {
         onAdd={() => setShowAddModal(true)}
         onImport={() => setShowImportModal(true)}
         onSplit={() => setShowGroupModal(true)}
+        onCategorize={() => setShowCategorizeModal(true)}
       />
 
       <TransactionFilters filters={filters} accounts={accountList} onFiltersChange={setFilters} />
@@ -134,6 +137,11 @@ export default function Transactions() {
           isSubmitting={createGroupMutation.isPending}
         />
       </Modal>
+
+      <BulkCategorizeModal
+        isOpen={showCategorizeModal}
+        onClose={() => setShowCategorizeModal(false)}
+      />
     </div>
   );
 }
@@ -142,10 +150,12 @@ function PageHeader({
   onAdd,
   onImport,
   onSplit,
+  onCategorize,
 }: {
   onAdd: () => void;
   onImport: () => void;
   onSplit: () => void;
+  onCategorize: () => void;
 }) {
   return (
     <div className="flex items-center justify-between">
@@ -153,6 +163,17 @@ function PageHeader({
         Transactions
       </h1>
       <div className="flex gap-2">
+        <button
+          onClick={onCategorize}
+          className="btn-icon flex items-center gap-1.5 rounded-md px-3 py-2 text-sm transition-all"
+          style={{
+            color: "var(--color-text-secondary)",
+            border: "1px solid var(--color-border)",
+          }}
+        >
+          <Tag size={14} />
+          Categorize
+        </button>
         <button
           onClick={onImport}
           className="btn-icon flex items-center gap-1.5 rounded-md px-3 py-2 text-sm transition-all"

@@ -8,14 +8,16 @@ const defaultParams: ProjectionParams = {
   monthlySavingsAdjustment: 0,
   returnRate: 7,
   yearsToProject: 10,
+  extraDebtPayment: 0,
   oneTimeEvents: [],
 };
 
 describe("ScenarioSliders", () => {
-  it("renders all three sliders", () => {
+  it("renders all sliders", () => {
     renderWithProviders(<ScenarioSliders params={defaultParams} onChange={vi.fn()} />);
     expect(screen.getByLabelText("Monthly Savings Adjustment")).toBeInTheDocument();
     expect(screen.getByLabelText("Expected Annual Return")).toBeInTheDocument();
+    expect(screen.getByLabelText("Extra Debt Payment")).toBeInTheDocument();
     expect(screen.getByLabelText("Years to Project")).toBeInTheDocument();
   });
 

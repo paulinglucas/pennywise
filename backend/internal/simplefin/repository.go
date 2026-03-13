@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -11,12 +13,13 @@ import (
 )
 
 type LinkedAccount struct {
-	AccountID   string
-	SimplefinID string
-	AccountName string
-	Institution string
-	AccountType string
-	Currency    string
+	AccountID         string
+	SimplefinID       string
+	AccountName       string
+	Institution       string
+	AccountType       string
+	Currency          string
+	HasCurrentBalance bool
 }
 
 type MortgageFields struct {
@@ -137,9 +140,20 @@ func (r *SQLiteSimplefinRepository) UnlinkAccount(ctx context.Context, userID, a
 	return err
 }
 
+func (r *SQLiteSimplefinRepository) HasUnsyncedLinkedAccounts(ctx context.Context, userID string) (bool, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM accounts
+		 WHERE user_id = ? AND simplefin_id IS NOT NULL AND deleted_at IS NULL
+		   AND current_balance IS NULL`,
+		userID,
+	).Scan(&count)
+	return count > 0, err
+}
+
 func (r *SQLiteSimplefinRepository) GetLinkedAccounts(ctx context.Context, userID string) ([]LinkedAccount, error) {
 	rows, err := r.db.QueryContext(ctx, //nolint:gosec // parameterized query
-		`SELECT id, simplefin_id, name, institution, account_type, currency
+		`SELECT id, simplefin_id, name, institution, account_type, currency, current_balance IS NOT NULL
 		 FROM accounts
 		 WHERE user_id = ? AND simplefin_id IS NOT NULL AND deleted_at IS NULL
 		 ORDER BY name`,
@@ -153,7 +167,7 @@ func (r *SQLiteSimplefinRepository) GetLinkedAccounts(ctx context.Context, userI
 	var linked []LinkedAccount
 	for rows.Next() {
 		var la LinkedAccount
-		if err := rows.Scan(&la.AccountID, &la.SimplefinID, &la.AccountName, &la.Institution, &la.AccountType, &la.Currency); err != nil {
+		if err := rows.Scan(&la.AccountID, &la.SimplefinID, &la.AccountName, &la.Institution, &la.AccountType, &la.Currency, &la.HasCurrentBalance); err != nil {
 			return nil, err
 		}
 		linked = append(linked, la)
@@ -356,9 +370,15 @@ func (r *SQLiteSimplefinRepository) CreateAccountWithLink(ctx context.Context, u
 		if absBalance < 0 {
 			absBalance = -absBalance
 		}
+
+		originalBalance := absBalance
+		if accountType == "mortgage" && mortgage != nil && mortgage.PurchasePrice != nil {
+			originalBalance = *mortgage.PurchasePrice
+		}
+
 		_, err = tx.ExecContext(ctx, //nolint:gosec // parameterized query
 			`UPDATE accounts SET original_balance = ?, current_balance = ? WHERE id = ?`,
-			absBalance, absBalance, accountID,
+			originalBalance, absBalance, accountID,
 		)
 		if err != nil {
 			return "", err
@@ -368,7 +388,7 @@ func (r *SQLiteSimplefinRepository) CreateAccountWithLink(ctx context.Context, u
 		_, err = tx.ExecContext(ctx, //nolint:gosec // parameterized query
 			`INSERT INTO goals (id, user_id, name, goal_type, target_amount, current_amount, linked_account_id, priority_rank)
 			 VALUES (?, ?, ?, 'debt_payoff', ?, ?, ?, (SELECT COALESCE(MAX(priority_rank), 0) + 1 FROM goals WHERE user_id = ?))`,
-			goalID, userID, "Pay off "+name, absBalance, absBalance, accountID, userID,
+			goalID, userID, "Pay off "+name, originalBalance, absBalance, accountID, userID,
 		)
 		if err != nil {
 			return "", err
@@ -438,7 +458,67 @@ func (r *SQLiteSimplefinRepository) createMortgageAsset(ctx context.Context, tx 
 		 VALUES (?, ?, ?, datetime('now'))`,
 		uuid.New().String(), assetID, *mortgage.PurchasePrice,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	return r.backfillMortgageHistory(ctx, tx, accountID, assetID, mortgage)
+}
+
+func (r *SQLiteSimplefinRepository) backfillMortgageHistory(ctx context.Context, tx *sql.Tx, accountID, assetID string, mortgage *MortgageFields) error {
+	if mortgage == nil || mortgage.PurchasePrice == nil || mortgage.InterestRate == nil ||
+		mortgage.LoanTermMonths == nil || mortgage.PurchaseDate == nil || mortgage.DownPaymentPct == nil {
+		return nil
+	}
+
+	purchaseDate, err := time.Parse("2006-01-02", *mortgage.PurchaseDate)
+	if err != nil {
+		slog.Warn("skipping mortgage history backfill: invalid purchase date", slog.String("purchase_date", *mortgage.PurchaseDate))
+		return nil
+	}
+
+	loanAmount := *mortgage.PurchasePrice * (1 - *mortgage.DownPaymentPct/100)
+	schedule := ComputeAmortizationSchedule(loanAmount, *mortgage.InterestRate, *mortgage.LoanTermMonths)
+
+	if len(schedule.Entries) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	monthDate := purchaseDate
+
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO account_balance_history (id, account_id, balance, recorded_at) VALUES (?, ?, ?, ?)`,
+		uuid.New().String(), accountID, loanAmount, purchaseDate.Format("2006-01-02"),
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO asset_history (id, asset_id, value, recorded_at) VALUES (?, ?, ?, ?)`,
+		uuid.New().String(), assetID, *mortgage.PurchasePrice, purchaseDate.Format("2006-01-02"),
+	)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range schedule.Entries {
+		monthDate = purchaseDate.AddDate(0, entry.Month, 0)
+		if monthDate.After(now) {
+			break
+		}
+
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO account_balance_history (id, account_id, balance, recorded_at) VALUES (?, ?, ?, ?)`,
+			uuid.New().String(), accountID, entry.Balance, monthDate.Format("2006-01-02"),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *SQLiteSimplefinRepository) BulkCreateSyncedTransactions(ctx context.Context, txns []models.Transaction) (int, error) {
@@ -524,6 +604,85 @@ func (r *SQLiteSimplefinRepository) UpdateAssetValue(ctx context.Context, assetI
 	)
 	if err != nil {
 		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *SQLiteSimplefinRepository) ReconstructBalanceHistory(ctx context.Context, userID, accountID string, currentBalance float64) error {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT DATE(t.date) as txn_date,
+		        COALESCE(SUM(CASE WHEN t.type = 'deposit' THEN t.amount ELSE 0 END), 0) as deposits,
+		        COALESCE(SUM(CASE WHEN t.type IN ('expense', 'transfer') THEN t.amount ELSE 0 END), 0) as withdrawals
+		 FROM transactions t
+		 JOIN accounts a ON a.id = t.account_id
+		 WHERE t.account_id = ? AND a.user_id = ? AND t.deleted_at IS NULL
+		 GROUP BY DATE(t.date)
+		 ORDER BY DATE(t.date) DESC`,
+		accountID, userID,
+	)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rows.Close() }()
+
+	type dailyBalance struct {
+		date    string
+		balance float64
+	}
+
+	balance := currentBalance
+	var entries []dailyBalance
+
+	for rows.Next() {
+		var txnDate string
+		var deposits, withdrawals float64
+		if err := rows.Scan(&txnDate, &deposits, &withdrawals); err != nil {
+			return err
+		}
+
+		if balance < 0 {
+			balance = 0
+		}
+		entries = append(entries, dailyBalance{date: txnDate, balance: balance})
+		balance = balance - deposits + withdrawals
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	if len(entries) == 0 {
+		return nil
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var historyCount int
+	err = tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM account_balance_history WHERE account_id = ?`,
+		accountID,
+	).Scan(&historyCount)
+	if err != nil {
+		return err
+	}
+	if historyCount > 1 {
+		return nil
+	}
+
+	for i := len(entries) - 1; i >= 0; i-- {
+		entry := entries[i]
+		_, err := tx.ExecContext(ctx,
+			`INSERT INTO account_balance_history (id, account_id, balance, recorded_at)
+			 VALUES (?, ?, ?, ?)`,
+			uuid.New().String(), accountID, entry.balance, entry.date,
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()
