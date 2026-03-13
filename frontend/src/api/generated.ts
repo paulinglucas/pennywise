@@ -129,6 +129,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/transactions/bulk-categorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update category for multiple transactions at once */
+        patch: operations["bulkCategorizeTransactions"];
+        trace?: never;
+    };
     "/transactions/import": {
         parameters: {
             query?: never;
@@ -792,6 +809,16 @@ export interface components {
             data: components["schemas"]["TransactionGroupResponse"][];
             pagination: components["schemas"]["PaginationMeta"];
         };
+        BulkCategorizeRequest: {
+            updates: {
+                /** Format: uuid */
+                transaction_id: string;
+                category: string;
+            }[];
+        };
+        BulkCategorizeResponse: {
+            updated: number;
+        };
         CategoriesResponse: {
             categories: string[];
         };
@@ -1049,6 +1076,8 @@ export interface components {
             monthly_savings_adjustment?: number;
             return_rate?: number;
             years_to_project: number;
+            /** @description Extra monthly payment toward highest-rate debt */
+            extra_debt_payment?: number;
             one_time_events?: {
                 amount: number;
                 /** Format: date */
@@ -1067,6 +1096,8 @@ export interface components {
                 }[];
                 /** Format: date */
                 millionaire_date?: string;
+                /** Format: date */
+                debt_free_date?: string;
             }[];
         };
         AlertResponse: {
@@ -1438,6 +1469,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransactionResponse"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    bulkCategorizeTransactions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkCategorizeRequest"];
+            };
+        };
+        responses: {
+            /** @description Categories updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkCategorizeResponse"];
                 };
             };
             400: components["responses"]["ValidationFailed"];

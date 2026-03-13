@@ -273,6 +273,29 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /transactions/bulk-categorize:
+    patch:
+      operationId: bulkCategorizeTransactions
+      tags: [transactions]
+      summary: Update category for multiple transactions at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkCategorizeRequest"
+      responses:
+        "200":
+          description: Categories updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkCategorizeResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /transactions/import:
     post:
       operationId: importTransactions
@@ -1646,6 +1669,36 @@ components:
         pagination:
           $ref: "#/components/schemas/PaginationMeta"
 
+    BulkCategorizeRequest:
+      type: object
+      required:
+        - updates
+      properties:
+        updates:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: object
+            required:
+              - transaction_id
+              - category
+            properties:
+              transaction_id:
+                type: string
+                format: uuid
+              category:
+                type: string
+                minLength: 1
+
+    BulkCategorizeResponse:
+      type: object
+      required:
+        - updated
+      properties:
+        updated:
+          type: integer
+
     CategoriesResponse:
       type: object
       required:
@@ -2280,6 +2333,10 @@ components:
           type: integer
           minimum: 1
           maximum: 40
+        extra_debt_payment:
+          type: number
+          minimum: 0
+          description: Extra monthly payment toward highest-rate debt
         one_time_events:
           type: array
           items:
@@ -2329,6 +2386,9 @@ components:
                     value:
                       type: number
               millionaire_date:
+                type: string
+                format: date
+              debt_free_date:
                 type: string
                 format: date
 

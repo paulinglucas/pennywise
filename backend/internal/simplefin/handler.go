@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -12,11 +14,21 @@ import (
 	"github.com/jamespsullivan/pennywise/internal/middleware"
 )
 
+const minSyncInterval = 30 * time.Minute
+
+type accountsCache struct {
+	mu        sync.Mutex
+	accounts  []simplefinAccountResponse
+	fetchedAt time.Time
+	userID    string
+}
+
 type Handler struct {
 	repo          *SQLiteSimplefinRepository
 	client        *Client
 	syncService   *SyncService
 	encryptionKey []byte
+	cache         accountsCache
 }
 
 func NewHandler(repo *SQLiteSimplefinRepository, client *Client, syncService *SyncService, encryptionKey []byte) *Handler {
@@ -177,27 +189,31 @@ func (h *Handler) ListSimplefinAccounts(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	accessURL, err := pennywisecrypto.Decrypt(h.encryptionKey, conn.AccessURL)
-	if err != nil {
-		slog.Error("failed to decrypt access URL", slog.Any("error", err))
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal error"})
-		return
-	}
+	accounts := h.getCachedAccounts(userID)
+	if accounts == nil {
+		accessURL, err := pennywisecrypto.Decrypt(h.encryptionKey, conn.AccessURL)
+		if err != nil {
+			slog.Error("failed to decrypt access URL", slog.Any("error", err))
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Internal error"})
+			return
+		}
 
-	username, password, baseURL, err := ParseAccessURL(accessURL)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Invalid stored access URL"})
-		return
-	}
+		username, password, baseURL, err := ParseAccessURL(accessURL)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Invalid stored access URL"})
+			return
+		}
 
-	resp, err := h.client.FetchAccounts(r.Context(), username, password, baseURL, nil)
-	if err != nil {
-		slog.Warn("failed to fetch SimpleFIN accounts", slog.Any("error", err))
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Failed to fetch accounts from SimpleFIN"})
-		return
-	}
+		resp, err := h.client.FetchAccounts(r.Context(), username, password, baseURL, nil)
+		if err != nil {
+			slog.Warn("failed to fetch SimpleFIN accounts", slog.Any("error", err))
+			writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Failed to fetch accounts from SimpleFIN"})
+			return
+		}
 
-	accounts := deduplicateAccounts(resp.Accounts)
+		accounts = deduplicateAccounts(resp.Accounts)
+		h.setCachedAccounts(userID, accounts)
+	}
 
 	dismissed, err := h.repo.GetDismissedAccountIDs(r.Context(), userID)
 	if err != nil {
@@ -206,6 +222,23 @@ func (h *Handler) ListSimplefinAccounts(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"accounts": accounts, "dismissed": dismissed})
+}
+
+func (h *Handler) getCachedAccounts(userID string) []simplefinAccountResponse {
+	h.cache.mu.Lock()
+	defer h.cache.mu.Unlock()
+	if h.cache.userID == userID && time.Since(h.cache.fetchedAt) < minSyncInterval && len(h.cache.accounts) > 0 {
+		return h.cache.accounts
+	}
+	return nil
+}
+
+func (h *Handler) setCachedAccounts(userID string, accounts []simplefinAccountResponse) {
+	h.cache.mu.Lock()
+	defer h.cache.mu.Unlock()
+	h.cache.accounts = accounts
+	h.cache.fetchedAt = time.Now()
+	h.cache.userID = userID
 }
 
 type linkRequest struct {
@@ -328,6 +361,14 @@ func (h *Handler) TriggerSync(w http.ResponseWriter, r *http.Request) {
 	if err != nil || conn == nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "SimpleFIN not connected"})
 		return
+	}
+
+	if conn.LastSyncAt != nil && time.Since(*conn.LastSyncAt) < minSyncInterval {
+		hasUnsynced, _ := h.repo.HasUnsyncedLinkedAccounts(r.Context(), userID)
+		if !hasUnsynced {
+			writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "Please wait at least 30 minutes between syncs"})
+			return
+		}
 	}
 
 	accessURL, err := pennywisecrypto.Decrypt(h.encryptionKey, conn.AccessURL)

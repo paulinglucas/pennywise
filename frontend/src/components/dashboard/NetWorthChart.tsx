@@ -156,10 +156,12 @@ function domainForPeriod(period: string, dataMinTs: number): [number, number] {
 }
 
 export default function NetWorthChart({ dataPoints, period, onPeriodChange }: NetWorthChartProps) {
-  const timeData = toTimeData(dataPoints);
-  const timestamps = timeData.map((d) => d.timestamp);
+  const allTimeData = toTimeData(dataPoints);
+  const timestamps = allTimeData.map((d) => d.timestamp);
   const dataMinTs = Math.min(...timestamps);
-  const [domainMin, domainMax] = domainForPeriod(period, dataMinTs);
+  const [periodMin, domainMax] = domainForPeriod(period, dataMinTs);
+  const domainMin = Math.max(periodMin, dataMinTs);
+  const timeData = allTimeData.filter((d) => d.timestamp >= periodMin);
   const ticks = generateEvenTicks(domainMin, domainMax, tickCountForPeriod(period));
 
   return (

@@ -35,6 +35,7 @@ type DebtRow struct {
 	Balance         float64
 	MonthlyPayment  float64
 	OriginalBalance *float64
+	InterestRate    *float64
 }
 
 type NetWorthDataPoint struct {
@@ -58,16 +59,10 @@ func (r *DashboardRepository) GetNetWorth(ctx context.Context, userID string) (N
 	}
 
 	err = r.db.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(balance), 0) FROM (
-		   SELECT
-		     COALESCE(SUM(CASE WHEN t.type = 'deposit' THEN t.amount ELSE 0 END), 0) -
-		     COALESCE(SUM(CASE WHEN t.type IN ('expense', 'transfer') THEN t.amount ELSE 0 END), 0) as balance
-		   FROM accounts a
-		   LEFT JOIN transactions t ON t.account_id = a.id AND t.deleted_at IS NULL
-		   WHERE a.user_id = ? AND a.deleted_at IS NULL
-		     AND a.account_type IN ('checking', 'savings', 'other')
-		   GROUP BY a.id
-		 )`,
+		`SELECT COALESCE(SUM(COALESCE(a.current_balance, 0)), 0)
+		 FROM accounts a
+		 WHERE a.user_id = ? AND a.deleted_at IS NULL
+		   AND a.account_type IN ('checking', 'savings', 'other')`,
 		userID,
 	).Scan(&result.CashTotal)
 	if err != nil {
@@ -99,8 +94,8 @@ func (r *DashboardRepository) GetCashFlowThisMonth(ctx context.Context, userID s
 
 	var deposits, expenses float64
 	err := r.db.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0),
-		        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)
+		`SELECT COALESCE(SUM(CASE WHEN type = 'deposit' AND category NOT IN ('transfer', 'cash') THEN amount ELSE 0 END), 0),
+		        COALESCE(SUM(CASE WHEN type = 'expense' AND category NOT IN ('transfer', 'cash') THEN amount ELSE 0 END), 0)
 		 FROM transactions
 		 WHERE user_id = ? AND deleted_at IS NULL
 		   AND date >= ? AND date < ?`,
@@ -121,6 +116,7 @@ func (r *DashboardRepository) GetSpendingByCategory(ctx context.Context, userID 
 		`SELECT category, SUM(amount) as total
 		 FROM transactions
 		 WHERE user_id = ? AND type = 'expense' AND deleted_at IS NULL
+		   AND category NOT IN ('transfer', 'cash')
 		   AND date >= ? AND date < ?
 		 GROUP BY category
 		 ORDER BY total DESC`,
@@ -155,10 +151,11 @@ func (r *DashboardRepository) GetDebtsSummary(ctx context.Context, userID string
 		        COALESCE((
 		            SELECT SUM(t.amount) FROM transactions t
 		            WHERE t.user_id = a.user_id AND t.account_id = a.id
-		              AND t.type = 'expense' AND t.deleted_at IS NULL
+		              AND t.category = 'transfer' AND t.deleted_at IS NULL
 		              AND t.date >= ? AND t.date < ?
 		        ), 0) as monthly_payment,
-		        a.original_balance
+		        a.original_balance,
+		        a.interest_rate
 		 FROM accounts a
 		 LEFT JOIN goals g ON g.linked_account_id = a.id AND g.goal_type = 'debt_payoff' AND g.deleted_at IS NULL
 		 WHERE a.user_id = ? AND a.deleted_at IS NULL
@@ -174,7 +171,7 @@ func (r *DashboardRepository) GetDebtsSummary(ctx context.Context, userID string
 	var result []DebtRow
 	for rows.Next() {
 		var row DebtRow
-		if err := rows.Scan(&row.AccountID, &row.Name, &row.Balance, &row.MonthlyPayment, &row.OriginalBalance); err != nil {
+		if err := rows.Scan(&row.AccountID, &row.Name, &row.Balance, &row.MonthlyPayment, &row.OriginalBalance, &row.InterestRate); err != nil {
 			return nil, err
 		}
 		result = append(result, row)
@@ -213,13 +210,13 @@ func (r *DashboardRepository) getHistoricalPoints(ctx context.Context, userID st
 		   WHERE a.user_id = ? AND a.deleted_at IS NULL
 		     AND ah.recorded_at >= ?
 		 ),
-		 txn_dates AS (
-		   SELECT DISTINCT DATE(t.date) as snap_date
-		   FROM transactions t
-		   JOIN accounts ac ON ac.id = t.account_id
-		   WHERE ac.user_id = ? AND ac.deleted_at IS NULL AND t.deleted_at IS NULL
-		     AND ac.account_type IN ('checking', 'savings', 'other')
-		     AND t.date >= ?
+		 cash_snap_dates AS (
+		   SELECT DISTINCT DATE(abh.recorded_at) as snap_date
+		   FROM account_balance_history abh
+		   JOIN accounts a ON a.id = abh.account_id
+		   WHERE a.user_id = ? AND a.deleted_at IS NULL
+		     AND a.account_type IN ('checking', 'savings', 'other')
+		     AND abh.recorded_at >= ?
 		 ),
 		 debt_snap_dates AS (
 		   SELECT DISTINCT DATE(abh.recorded_at) as snap_date
@@ -237,7 +234,7 @@ func (r *DashboardRepository) getHistoricalPoints(ctx context.Context, userID st
 		   UNION
 		   SELECT snap_date FROM asset_snap_dates
 		   UNION
-		   SELECT snap_date FROM txn_dates
+		   SELECT snap_date FROM cash_snap_dates
 		   UNION
 		   SELECT snap_date FROM debt_snap_dates
 		 )
@@ -255,13 +252,16 @@ func (r *DashboardRepository) getHistoricalPoints(ctx context.Context, userID st
 		     )
 		   ), 0)
 		     + COALESCE((
-		         SELECT SUM(CASE WHEN t.type = 'deposit' THEN t.amount ELSE 0 END)
-		              - SUM(CASE WHEN t.type IN ('expense', 'transfer') THEN t.amount ELSE 0 END)
-		         FROM transactions t
-		         JOIN accounts ac ON ac.id = t.account_id
-		         WHERE ac.user_id = ? AND ac.deleted_at IS NULL AND t.deleted_at IS NULL
-		           AND ac.account_type IN ('checking', 'savings', 'other')
-		           AND t.date <= ad.snap_date
+		         SELECT SUM(COALESCE(
+		           (SELECT abh.balance FROM account_balance_history abh
+		            WHERE abh.account_id = ca.id AND DATE(abh.recorded_at) <= ad.snap_date
+		            ORDER BY abh.recorded_at DESC LIMIT 1),
+		           CASE WHEN DATE(ca.created_at) <= ad.snap_date THEN COALESCE(ca.current_balance, 0) END,
+		           0
+		         ))
+		         FROM accounts ca
+		         WHERE ca.user_id = ? AND ca.deleted_at IS NULL
+		           AND ca.account_type IN ('checking', 'savings', 'other')
 		       ), 0)
 		     - COALESCE((
 		         SELECT SUM(COALESCE(

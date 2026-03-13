@@ -72,10 +72,13 @@ func TestGetDashboard_EmptyUser(t *testing.T) {
 
 func TestGetDashboard_WithData(t *testing.T) {
 	t.Parallel()
-	_, router := setupRouter(t)
+	database, router := setupRouter(t)
 	cookie := loginAndGetCookie(t, router)
 
-	setupDashboardData(t, router, cookie)
+	accountID := setupDashboardData(t, router, cookie)
+
+	_, err := database.Exec(`UPDATE accounts SET current_balance = 3000 WHERE id = ?`, accountID)
+	require.NoError(t, err)
 
 	req := authedRequest(http.MethodGet, "/api/v1/dashboard", "", cookie)
 	rec := httptest.NewRecorder()
@@ -229,7 +232,7 @@ func TestGetDashboard_DebtsMonthsRemainingAndPayoffDate(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	txnBody := fmt.Sprintf(`{"account_id":"%s","type":"expense","category":"cc_payment","amount":1000,"date":"2026-03-01"}`, ccAccountID)
+	txnBody := fmt.Sprintf(`{"account_id":"%s","type":"deposit","category":"transfer","amount":1000,"date":"2026-03-01"}`, ccAccountID)
 	txnReq := authedRequest(http.MethodPost, "/api/v1/transactions", txnBody, cookie)
 	txnRec := httptest.NewRecorder()
 	router.ServeHTTP(txnRec, txnReq)

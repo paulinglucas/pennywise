@@ -528,6 +528,19 @@ type AssetResponse struct {
 // AssetType defines model for AssetType.
 type AssetType string
 
+// BulkCategorizeRequest defines model for BulkCategorizeRequest.
+type BulkCategorizeRequest struct {
+	Updates []struct {
+		Category      string             `json:"category"`
+		TransactionId openapi_types.UUID `json:"transaction_id"`
+	} `json:"updates"`
+}
+
+// BulkCategorizeResponse defines model for BulkCategorizeResponse.
+type BulkCategorizeResponse struct {
+	Updated int `json:"updated"`
+}
+
 // CategoriesResponse defines model for CategoriesResponse.
 type CategoriesResponse struct {
 	Categories []string `json:"categories"`
@@ -778,6 +791,9 @@ type PortfolioSummary struct {
 
 // ProjectionRequest defines model for ProjectionRequest.
 type ProjectionRequest struct {
+	// ExtraDebtPayment Extra monthly payment toward highest-rate debt
+	ExtraDebtPayment *float32 `json:"extra_debt_payment,omitempty"`
+
 	// MonthlySavingsAdjustment Percentage adjustment to current savings rate
 	MonthlySavingsAdjustment *float32 `json:"monthly_savings_adjustment,omitempty"`
 	OneTimeEvents            *[]struct {
@@ -799,6 +815,7 @@ type ProjectionResponse struct {
 			Date  openapi_types.Date `json:"date"`
 			Value float32            `json:"value"`
 		} `json:"data_points"`
+		DebtFreeDate    *openapi_types.Date `json:"debt_free_date,omitempty"`
 		MillionaireDate *openapi_types.Date `json:"millionaire_date,omitempty"`
 		Scenario        Scenario            `json:"scenario"`
 	} `json:"scenarios"`
@@ -1149,6 +1166,9 @@ type UpdateTransactionGroupJSONRequestBody = UpdateTransactionGroupRequest
 // CreateTransactionJSONRequestBody defines body for CreateTransaction for application/json ContentType.
 type CreateTransactionJSONRequestBody = CreateTransactionRequest
 
+// BulkCategorizeTransactionsJSONRequestBody defines body for BulkCategorizeTransactions for application/json ContentType.
+type BulkCategorizeTransactionsJSONRequestBody = BulkCategorizeRequest
+
 // ImportTransactionsMultipartRequestBody defines body for ImportTransactions for multipart/form-data ContentType.
 type ImportTransactionsMultipartRequestBody ImportTransactionsMultipartBody
 
@@ -1295,6 +1315,9 @@ type ServerInterface interface {
 	// Create a transaction
 	// (POST /transactions)
 	CreateTransaction(w http.ResponseWriter, r *http.Request)
+	// Update category for multiple transactions at once
+	// (PATCH /transactions/bulk-categorize)
+	BulkCategorizeTransactions(w http.ResponseWriter, r *http.Request)
 	// Bulk import transactions from CSV
 	// (POST /transactions/import)
 	ImportTransactions(w http.ResponseWriter, r *http.Request)
@@ -1586,6 +1609,12 @@ func (_ Unimplemented) ListTransactions(w http.ResponseWriter, r *http.Request, 
 // Create a transaction
 // (POST /transactions)
 func (_ Unimplemented) CreateTransaction(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update category for multiple transactions at once
+// (PATCH /transactions/bulk-categorize)
+func (_ Unimplemented) BulkCategorizeTransactions(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3032,6 +3061,26 @@ func (siw *ServerInterfaceWrapper) CreateTransaction(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// BulkCategorizeTransactions operation middleware
+func (siw *ServerInterfaceWrapper) BulkCategorizeTransactions(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, CookieAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BulkCategorizeTransactions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ImportTransactions operation middleware
 func (siw *ServerInterfaceWrapper) ImportTransactions(w http.ResponseWriter, r *http.Request) {
 
@@ -3395,6 +3444,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/transactions", wrapper.CreateTransaction)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/transactions/bulk-categorize", wrapper.BulkCategorizeTransactions)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/transactions/import", wrapper.ImportTransactions)

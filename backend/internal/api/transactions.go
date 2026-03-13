@@ -26,6 +26,7 @@ type TransactionRepository interface {
 	SoftDelete(ctx context.Context, userID, id string) (bool, error)
 	BulkCreate(ctx context.Context, txns []models.Transaction) (int, []queries.BulkCreateError)
 	ListCategories(ctx context.Context, userID string) ([]string, error)
+	BulkCategorize(ctx context.Context, userID string, updates []queries.CategoryUpdate) (int, error)
 }
 
 func (h *AppHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
@@ -43,6 +44,38 @@ func (h *AppHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
 	}
 
 	WriteJSON(w, http.StatusOK, CategoriesResponse{Categories: categories})
+}
+
+func (h *AppHandler) BulkCategorizeTransactions(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	requestID := middleware.GetRequestID(r.Context())
+
+	var req BulkCategorizeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, http.StatusBadRequest, VALIDATIONFAILED, "Invalid request body", requestID)
+		return
+	}
+
+	if len(req.Updates) == 0 {
+		WriteError(w, http.StatusBadRequest, VALIDATIONFAILED, "No updates provided", requestID)
+		return
+	}
+
+	updates := make([]queries.CategoryUpdate, len(req.Updates))
+	for i, u := range req.Updates {
+		updates[i] = queries.CategoryUpdate{
+			TransactionID: u.TransactionId.String(),
+			Category:      u.Category,
+		}
+	}
+
+	updated, err := h.transactions.BulkCategorize(r.Context(), userID, updates)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, INTERNALERROR, "Failed to update categories", requestID)
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, BulkCategorizeResponse{Updated: updated})
 }
 
 type AuditLogWriter interface {

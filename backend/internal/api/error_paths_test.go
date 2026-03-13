@@ -147,6 +147,9 @@ func (m *mockTransactionRepo) ListCategories(ctx context.Context, userID string)
 	}
 	return nil, nil
 }
+func (m *mockTransactionRepo) BulkCategorize(_ context.Context, _ string, _ []queries.CategoryUpdate) (int, error) {
+	return 0, nil
+}
 
 type mockAssetRepo struct {
 	listFn             func(ctx context.Context, userID string, page, perPage int) ([]models.Asset, int, error)

@@ -336,6 +336,17 @@ export default function ScenarioSliders({
       </SliderField>
 
       <SliderField
+        label="Extra Debt Payment"
+        value={params.extraDebtPayment}
+        min={0}
+        max={2000}
+        step={25}
+        displayValue={formatCurrency(params.extraDebtPayment)}
+        hint="Extra monthly payment toward highest-rate debt (avalanche method)."
+        onChange={(v) => updateParam("extraDebtPayment", v)}
+      />
+
+      <SliderField
         label="Years to Project"
         value={params.yearsToProject}
         min={1}

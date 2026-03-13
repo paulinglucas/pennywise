@@ -81,11 +81,20 @@ func (s *SyncService) SyncUser(ctx context.Context, userID, accessURL string, la
 
 	result := &SyncResult{UserID: userID}
 
+	slog.Info("sync: fetched accounts from SimpleFIN",
+		slog.Int("total_accounts", len(resp.Accounts)),
+		slog.Int("linked_accounts", len(linked)))
+
 	for _, sfinAccount := range resp.Accounts {
 		la, ok := simplefinToAccount[sfinAccount.ID]
 		if !ok {
+			slog.Info("sync: skipping unlinked account", slog.String("name", sfinAccount.Name), slog.String("sfin_id", sfinAccount.ID))
 			continue
 		}
+		slog.Info("sync: processing linked account",
+			slog.String("name", sfinAccount.Name),
+			slog.String("type", la.AccountType),
+			slog.Int("transactions", len(sfinAccount.Transactions)))
 
 		balance, err := strconv.ParseFloat(sfinAccount.Balance, 64)
 		if err != nil {
@@ -95,13 +104,20 @@ func (s *SyncService) SyncUser(ctx context.Context, userID, accessURL string, la
 		}
 		balance = math.Abs(balance)
 
+		isFirstSync := !la.HasCurrentBalance
 		if isDebtAccount(la.AccountType) {
 			s.syncDebtBalance(ctx, la, balance, result)
 		} else {
 			s.syncAssetAccount(ctx, userID, la, balance, result)
 		}
 
-		s.syncTransactions(ctx, userID, la.AccountID, la.Currency, sfinAccount.Transactions, result)
+		s.syncTransactions(ctx, userID, la.AccountID, la.AccountType, la.Currency, sfinAccount.Transactions, result)
+
+		if isFirstSync && !isDebtAccount(la.AccountType) {
+			if err := s.repo.ReconstructBalanceHistory(ctx, userID, la.AccountID, balance); err != nil {
+				slog.Warn("failed to reconstruct balance history", slog.String("account_id", la.AccountID), slog.Any("error", err)) //nolint:gosec // account_id is internal DB value
+			}
+		}
 	}
 
 	return result, nil
@@ -128,6 +144,10 @@ func (s *SyncService) syncDebtBalance(ctx context.Context, la LinkedAccount, bal
 }
 
 func (s *SyncService) syncAssetAccount(ctx context.Context, userID string, la LinkedAccount, balance float64, result *SyncResult) {
+	if err := s.repo.UpdateAccountBalance(ctx, la.AccountID, balance); err != nil {
+		slog.Warn("failed to update cash account balance", slog.String("account_id", la.AccountID), slog.Any("error", err)) //nolint:gosec // account_id is internal DB value
+	}
+
 	asset, err := s.repo.GetAssetForAccount(ctx, userID, la.AccountID)
 	if err != nil {
 		slog.Warn("failed to get asset for account", slog.String("account_id", la.AccountID), slog.Any("error", err)) //nolint:gosec // account_id is internal DB value
@@ -135,10 +155,12 @@ func (s *SyncService) syncAssetAccount(ctx context.Context, userID string, la Li
 		return
 	}
 	if asset == nil {
+		result.Updated++
 		return
 	}
 
 	if math.Abs(asset.CurrentValue-balance) < 0.005 {
+		result.Updated++
 		return
 	}
 
@@ -151,20 +173,31 @@ func (s *SyncService) syncAssetAccount(ctx context.Context, userID string, la Li
 	result.Updated++
 }
 
-func (s *SyncService) syncTransactions(ctx context.Context, userID, accountID, currency string, sfinTxns []Transaction, result *SyncResult) {
+func (s *SyncService) syncTransactions(ctx context.Context, userID, accountID, accountType, currency string, sfinTxns []Transaction, result *SyncResult) {
+	slog.Info("sync: syncTransactions called",
+		slog.String("account_id", accountID),
+		slog.String("account_type", accountType),
+		slog.Int("raw_txns", len(sfinTxns)))
+
 	if len(sfinTxns) == 0 {
 		return
 	}
 
+	pending := 0
 	var txns []models.Transaction
 	for _, st := range sfinTxns {
 		if st.Pending {
+			pending++
 			continue
 		}
 
-		txn := mapSimplefinTransaction(st, userID, accountID, currency)
+		txn := mapSimplefinTransaction(st, userID, accountID, accountType, currency)
 		txns = append(txns, txn)
 	}
+
+	slog.Info("sync: mapped transactions",
+		slog.Int("mapped", len(txns)),
+		slog.Int("pending_skipped", pending))
 
 	if len(txns) == 0 {
 		return
@@ -176,10 +209,13 @@ func (s *SyncService) syncTransactions(ctx context.Context, userID, accountID, c
 		result.Errors++
 		return
 	}
+	slog.Info("sync: transactions imported",
+		slog.Int("new", imported),
+		slog.Int("duplicates_skipped", len(txns)-imported))
 	result.TransactionsImported += imported
 }
 
-func mapSimplefinTransaction(st Transaction, userID, accountID, currency string) models.Transaction {
+func mapSimplefinTransaction(st Transaction, userID, accountID, accountType, currency string) models.Transaction {
 	amount, _ := strconv.ParseFloat(st.Amount, 64)
 
 	txnType := "deposit"
@@ -196,6 +232,12 @@ func mapSimplefinTransaction(st Transaction, userID, accountID, currency string)
 		notes = &description
 	}
 
+	category := categorizeTransaction(description)
+
+	if isDebtAccount(accountType) && amount > 0 {
+		category = "transfer"
+	}
+
 	externalID := st.ID
 
 	return models.Transaction{
@@ -203,7 +245,7 @@ func mapSimplefinTransaction(st Transaction, userID, accountID, currency string)
 		UserID:     userID,
 		AccountID:  accountID,
 		Type:       txnType,
-		Category:   categorizeTransaction(description),
+		Category:   category,
 		Amount:     math.Abs(amount),
 		Currency:   currency,
 		Date:       time.Unix(st.Posted, 0),
